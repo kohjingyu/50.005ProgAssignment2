@@ -11,6 +11,13 @@ import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
+
+import java.util.Base64;
+import javax.crypto.Cipher;
+import java.security.Key;
+import java.security.KeyFactory;
+import java.security.spec.PKCS8EncodedKeySpec;
 
 public class ServerWithoutSecurity {
 
@@ -31,11 +38,16 @@ public class ServerWithoutSecurity {
 			toClient = new DataOutputStream(connectionSocket.getOutputStream());
 
 			// Send certificate to client
+			
+			// Start the h a n d s h a k e
 			try {
-				Path path = Paths.get("cert/server.crt");
+				byte[] encryptedMsg = encryptString("Helllo this is SecStore!");
+				toClient.writeInt(encryptedMsg.length); // Write length of message in bytes
+				toClient.write(encryptedMsg);
+
+				Path path = Paths.get("jyCert/server.crt");
 				byte[] data = Files.readAllBytes(path);
-				toClient.writeInt(0);
-				toClient.writeInt(data.length);
+				toClient.writeInt(data.length); // Write length of certificate in bytes
 				toClient.write(data);
 			}
 			catch(EOFException ex) {
@@ -66,8 +78,9 @@ public class ServerWithoutSecurity {
 
 					if (numBytes > 0)
 						bufferedFileOutputStream.write(block, 0, numBytes);
+				}
 
-				} else if (packetType == 2) {
+				if (packetType == 2) {
 					System.out.println("Closing connection...");
 
 					if (bufferedFileOutputStream != null) bufferedFileOutputStream.close();
@@ -82,6 +95,37 @@ public class ServerWithoutSecurity {
 			e.printStackTrace();
 		}
 
+	}
+
+	public static byte[] encryptString(String s) throws Exception {
+		// Read private key from privateServer.pem
+		Key privateKey = getPrivateKey();
+
+        Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+        cipher.init(Cipher.ENCRYPT_MODE, privateKey);
+
+        // encrypt digest message
+        byte[] encryptedBytes = cipher.doFinal(s.getBytes());
+
+        return encryptedBytes;
+	}
+
+	public static Key getPrivateKey() throws Exception {
+		Path privateKeyPath = Paths.get("jyCert/privateServer8.pem");
+		byte[] privateKeyBytes = Files.readAllBytes(privateKeyPath);
+		String privateKeyString = new String(privateKeyBytes, "UTF-8");
+
+		// Strip header, footer
+		privateKeyString = privateKeyString.replace("-----BEGIN PRIVATE KEY-----", "")
+			.replace("-----END PRIVATE KEY-----", "")
+			.replaceAll("\\s", "");
+
+		byte[] privateKeyRepresentation = Base64.getDecoder().decode(privateKeyString.getBytes("UTF-8"));
+
+		KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+		Key privateKey = keyFactory.generatePrivate(new PKCS8EncodedKeySpec(privateKeyRepresentation));
+
+		return privateKey;
 	}
 
 }

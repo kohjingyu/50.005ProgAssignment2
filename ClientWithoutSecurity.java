@@ -12,6 +12,7 @@ import java.security.cert.X509Certificate;
 import java.security.cert.CertificateFactory;
 import java.security.cert.CertificateException;
 import java.security.PublicKey;
+import javax.crypto.Cipher;
 
 public class ClientWithoutSecurity {
 
@@ -29,7 +30,7 @@ public class ClientWithoutSecurity {
         BufferedInputStream bufferedFileInputStream = null;
 
 		long timeStarted = System.nanoTime();
-		boolean certificateVerified = false;
+		boolean identityVerified = false;
 
 		try {
 
@@ -40,14 +41,22 @@ public class ClientWithoutSecurity {
 			toServer = new DataOutputStream(clientSocket.getOutputStream());
 			fromServer = new DataInputStream(clientSocket.getInputStream());
 
-			int packetType = fromServer.readInt();
+			byte [] encryptedMsg;
+			// Transferring message
+			System.out.println("Receiving encrypted message...");
+			int msgBytes = fromServer.readInt();
+			encryptedMsg = new byte[msgBytes];
+			fromServer.read(encryptedMsg);
 
-			// Transferring certificate
-			if(packetType == 0) {
+			try {
+				// Transferring certificate
 				System.out.println("Receiving certificate...");
 				int certBytes = fromServer.readInt();
 				byte [] data = new byte[certBytes];
 				fromServer.read(data);
+
+				System.out.println("Verifying certificate...");
+
 				InputStream certIn = new ByteArrayInputStream(data);
 
 				// Receive certificate from server
@@ -55,23 +64,29 @@ public class ClientWithoutSecurity {
 				CertificateFactory serverCf = CertificateFactory.getInstance("X.509");
 				X509Certificate serverCert =(X509Certificate)serverCf.generateCertificate(certIn);
 
-				System.out.println("Verifying certificate...");
+				PublicKey serverPublicKey = getServerPublicKey(serverCert);
 
-				try {
-					verifyCertificate(serverCert);
-					certificateVerified = true; // Allow for file transfer
-				}
-				catch(Exception e) {
-					// Not valid!
-					// Some error occured, or server is not verified
-					System.out.println("Certificate is not valid. Bye!");
-			        toServer.writeInt(2);
-			        toServer.flush();
-				}
+				// Decrypt message from SecStore
+	            Cipher decryptCipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+	            decryptCipher.init(Cipher.DECRYPT_MODE, serverPublicKey);
+	            byte[] decryptedBytes = decryptCipher.doFinal(encryptedMsg);
+	            String decryptedMsg = new String(decryptedBytes, "UTF-8");
+
+	            // TODO: How to make message consistent between client and server?
+	            assert(decryptedMsg.equals("Helllo this is SecStore!"));
+	            System.out.println("SecStore identity verified.");
+
+				identityVerified = true; // Allow for file transfer
+			}
+			catch(Exception e) {
+				// e.printStackTrace();
+				System.out.println("Oh no, you were not verified. Bye!");
 			}
 
+			// TODO: YAY! Verification done! Now Vincent will do the rest.
+
 			// If check succeeded, send file
-			if(certificateVerified) {
+			if(identityVerified) {
 				System.out.println("Sending file...");
 
 				// Send the filename
@@ -99,22 +114,33 @@ public class ClientWithoutSecurity {
 
 		        bufferedFileInputStream.close();
 		        fileInputStream.close();
+			}
 
-				System.out.println("Closing connection...");
+			System.out.println("Closing connection...");
+	        toServer.writeInt(2);
+	        toServer.flush();
+		} catch (Exception e) {
+			// Not valid!
+			// Some error occured, or server is not verified
+			e.printStackTrace();
+
+			try {
+				System.out.println("Some error occurred. Bye!");
 		        toServer.writeInt(2);
 		        toServer.flush();
 			}
-		} catch (Exception e) {
-			e.printStackTrace();
+			catch(IOException ex) {
+				ex.printStackTrace();
+			}
 		}
 
 		long timeTaken = System.nanoTime() - timeStarted;
 		System.out.println("Program took: " + timeTaken/1000000.0 + "ms to run");
 	}
 
-	public static void verifyCertificate(X509Certificate serverCert) throws Exception {
+	public static PublicKey getServerPublicKey(X509Certificate serverCert) throws Exception {
 		// Load CA's public key
-		InputStream CAFis = new FileInputStream("cert/CA.crt");
+		InputStream CAFis = new FileInputStream("jyCert/CA.crt");
 		CertificateFactory CACf = CertificateFactory.getInstance("X.509");
 		X509Certificate CAcert =(X509Certificate)CACf.generateCertificate(CAFis);
 
@@ -123,6 +149,10 @@ public class ClientWithoutSecurity {
 		serverCert.checkValidity(); // Throws a CertificateExpiredException or CertificateNotYetValidException if invalid
 		serverCert.verify(CAKey);
 
-		System.out.println("Server certificate is valid!");
+		System.out.println("Server certificate is signed by CA!");
+
+		// Get K_S^+
+		PublicKey serverPublicKey = serverCert.getPublicKey();
+		return serverPublicKey;
 	}
 }
