@@ -17,7 +17,7 @@ import javax.crypto.Cipher;
 public class ClientWithoutSecurity {
 
 	public static void main(String[] args) {
-    	String filename = "rr.txt";
+  	String filename = "rr.txt";
 
 		int numBytes = 0;
 
@@ -37,7 +37,9 @@ public class ClientWithoutSecurity {
 			System.out.println("Establishing connection to server...");
 
 			// Connect to server and get the input and output streams
-			clientSocket = new Socket("localhost", 4321);
+			// String server = "10.12.182.147"
+			String server = "localhost";
+			clientSocket = new Socket(server, 4321);
 			toServer = new DataOutputStream(clientSocket.getOutputStream());
 			fromServer = new DataInputStream(clientSocket.getInputStream());
 
@@ -133,7 +135,6 @@ public class ClientWithoutSecurity {
 				ex.printStackTrace();
 			}
 		}
-
 		long timeTaken = System.nanoTime() - timeStarted;
 		System.out.println("Program took: " + timeTaken/1000000.0 + "ms to run");
 	}

@@ -38,7 +38,7 @@ public class ServerWithoutSecurity {
 			toClient = new DataOutputStream(connectionSocket.getOutputStream());
 
 			// Send certificate to client
-			
+
 			// Start the h a n d s h a k e
 			try {
 				byte[] encryptedMsg = encryptString("Helllo this is SecStore!");
@@ -59,7 +59,7 @@ public class ServerWithoutSecurity {
 
 			while (!connectionSocket.isClosed()) {
 				int packetType = fromClient.readInt();
-				
+
 				// If the packet is for transferring the filename
 				if (packetType == 0) {
 					System.out.println("Receiving file...");
