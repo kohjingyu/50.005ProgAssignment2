@@ -1,0 +1,31 @@
+Convolutional networks(LeCun, 1989), also known as convolutional neural
+networks, or CNNs, are a specialized kind of neural network for processing data
+that has a known grid-like topology. Examples include time-series data, which can
+be thought of as a 1-D grid taking samples at regular time intervals, and image data,
+which can be thought of as a 2-D grid of pixels. Convolutional networks have been
+tremendously successful in practical applications. The name “convolutional neural
+network” indicates that the network employs a mathematical operation called
+convolution. Convolution is a specialized kind of linear operation. Convolutional
+networks are simply neural networks that use convolution in place of general matrix
+multiplication in at least one of their layers.
+
+In this chapter, we ﬁrst describe what convolution is. Next, we explain the
+motivation behind using convolution in a neural network. We then describe an
+operation called pooling, which almost all convolutional networks employ. Usually,
+the operation used in a convolutional neural network does not correspond precisely
+to the deﬁnition of convolution as used in other ﬁelds, such as engineering or
+pure mathematics. We describe several variants on the convolution function that
+are widely used in practice for neural networks. We also show how convolution
+may be applied to many kinds of data, with diﬀerent numbers of dimensions. We
+then discuss means of making convolution more eﬃcient. Convolutional networks
+stand out as an example of neuroscientiﬁc principles inﬂuencing deep learning.
+We discuss these neuroscientiﬁc principles, then conclude with comments about
+the role convolutional networks have played in the history of deep learning. One
+topic this chapter does not address is how to choose the architecture of your
+convolutional network. The goal of this chapter is to describe the kinds of tools
+that convolutional networks provide, while chapter 11 describes general guidelines
+for choosing which tools to use in which circumstances. Research into convolutional
+network architectures proceeds so rapidly that a new best architecture for a given
+benchmark is announced every few weeks to months, rendering it impractical to
+describe in print the best architecture. Nonetheless, the best architectures have
+consistently been composed of the building blocks described here.

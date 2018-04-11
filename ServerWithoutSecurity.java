@@ -81,7 +81,7 @@ public class ServerWithoutSecurity {
 
 				// If the packet is for transferring a chunk of the file
 				} else if (packetType == 1) {
-					System.out.println("Receiving file...");
+					// System.out.println("Receiving file...");
 					int numBytes = fromClient.readInt();
 					byte[] encryptedBlock = new byte[128];
 					fromClient.read(encryptedBlock);
