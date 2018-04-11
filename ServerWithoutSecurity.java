@@ -20,8 +20,12 @@ import java.security.KeyFactory;
 import java.security.spec.PKCS8EncodedKeySpec;
 
 public class ServerWithoutSecurity {
+	Key privateKey;
+	static Cipher encryptCipher;
+	static Cipher decryptCipher;
 
-	public static void main(String[] args) {
+
+	public static void main(String[] args){
 
 		ServerSocket welcomeSocket = null;
 		Socket connectionSocket = null;
@@ -32,7 +36,7 @@ public class ServerWithoutSecurity {
 		BufferedOutputStream bufferedFileOutputStream = null;
 
 		try {
-			welcomeSocket = new ServerSocket(4321);
+			welcomeSocket = new ServerSocket(1234);
 			connectionSocket = welcomeSocket.accept();
 			fromClient = new DataInputStream(connectionSocket.getInputStream());
 			toClient = new DataOutputStream(connectionSocket.getOutputStream());
@@ -41,6 +45,7 @@ public class ServerWithoutSecurity {
 
 			// Start the h a n d s h a k e
 			try {
+				initialiseCipher();
 				byte[] encryptedMsg = encryptString("Helllo this is SecStore!");
 				toClient.writeInt(encryptedMsg.length); // Write length of message in bytes
 				toClient.write(encryptedMsg);
@@ -62,22 +67,28 @@ public class ServerWithoutSecurity {
 
 				// If the packet is for transferring the filename
 				if (packetType == 0) {
-					System.out.println("Receiving file...");
+					System.out.println(packetType);
+					System.out.println("Receiving filename...");
 
 					int numBytes = fromClient.readInt();
-					byte [] filename = new byte[numBytes];
-					fromClient.read(filename);
-
+					byte [] encryptedfilename = new byte[128];
+					fromClient.read(encryptedfilename);
+					System.out.println("number of Bytes expected: " + numBytes);
+					byte[] filename = decryptBytes(encryptedfilename);
+					System.out.println("Filename is " + new String(filename));
 					fileOutputStream = new FileOutputStream("recv/"+new String(filename, 0, numBytes));
 					bufferedFileOutputStream = new BufferedOutputStream(fileOutputStream);
+
 				// If the packet is for transferring a chunk of the file
 				} else if (packetType == 1) {
+					System.out.println("Receiving file...");
 					int numBytes = fromClient.readInt();
-					byte [] block = new byte[numBytes];
-					fromClient.read(block);
+					byte[] encryptedBlock = new byte[128];
+					fromClient.read(encryptedBlock);
+					byte[] decryptedBlock = decryptBytes(encryptedBlock);
 
 					if (numBytes > 0)
-						bufferedFileOutputStream.write(block, 0, numBytes);
+						bufferedFileOutputStream.write(decryptedBlock, 0, numBytes);
 				}
 
 				if (packetType == 2) {
@@ -85,6 +96,7 @@ public class ServerWithoutSecurity {
 
 					if (bufferedFileOutputStream != null) bufferedFileOutputStream.close();
 					if (bufferedFileOutputStream != null) fileOutputStream.close();
+					toClient.writeInt(3);
 					fromClient.close();
 					toClient.close();
 					connectionSocket.close();
@@ -99,15 +111,25 @@ public class ServerWithoutSecurity {
 
 	public static byte[] encryptString(String s) throws Exception {
 		// Read private key from privateServer.pem
+
+    // encrypt digest message
+
+    byte[] encryptedBytes = encryptCipher.doFinal(s.getBytes());
+    return encryptedBytes;
+	}
+
+	public static byte[] decryptBytes(byte[] encryptedByte) throws Exception {
+		byte[] decryptedBytes = decryptCipher.doFinal(encryptedByte);
+		return decryptedBytes;
+	}
+
+
+	public static void initialiseCipher() throws Exception{
 		Key privateKey = getPrivateKey();
-
-        Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-        cipher.init(Cipher.ENCRYPT_MODE, privateKey);
-
-        // encrypt digest message
-        byte[] encryptedBytes = cipher.doFinal(s.getBytes());
-
-        return encryptedBytes;
+		encryptCipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+		encryptCipher.init(Cipher.ENCRYPT_MODE, privateKey);
+		decryptCipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+		decryptCipher.init(Cipher.DECRYPT_MODE, privateKey);
 	}
 
 	public static Key getPrivateKey() throws Exception {
