@@ -17,192 +17,191 @@ import java.security.PublicKey;
 import javax.crypto.Cipher;
 
 public class ClientWithoutSecurity {
-	static Cipher encryptCipher;
-	static Cipher decryptCipher;
+    static Cipher encryptCipher;
+    static Cipher decryptCipher;
 
-	public static void main(String[] args) {
-	BufferedReader stdIn = new BufferedReader(new InputStreamReader(System.in));
-	System.out.println("Enter name of file to be sent");
-	String filename = "";
-	try {
-	  	filename = stdIn.readLine();
-	} catch (IOException ioEx) {
-		ioEx.printStackTrace();
-	}
-  	String protocol = "cp1";
-  	PublicKey serverPublicKey;
+    public static void main(String[] args) {
+        BufferedReader stdIn = new BufferedReader(new InputStreamReader(System.in));
+        System.out.println("Enter name of file to be sent:");
+        String filename = "";
+        
+        try {
+            filename = stdIn.readLine();
+        } catch (IOException ioEx) {
+            ioEx.printStackTrace();
+        }
 
-		int numBytes = 0;
+        String protocol = "cp1";
+        PublicKey serverPublicKey;
 
-		Socket clientSocket = null;
+        int numBytes = 0;
 
-    DataOutputStream toServer = null;
-    DataInputStream fromServer = null;
+        Socket clientSocket = null;
 
-  	FileInputStream fileInputStream = null;
-    BufferedInputStream bufferedFileInputStream = null;
+        DataOutputStream toServer = null;
+        DataInputStream fromServer = null;
 
-		long timeStarted = System.nanoTime();
-		boolean identityVerified = false;
+        FileInputStream fileInputStream = null;
+        BufferedInputStream bufferedFileInputStream = null;
 
-		try {
+        long timeStarted = System.nanoTime();
+        boolean identityVerified = false;
 
-			System.out.println("Establishing connection to server...");
+        try {
+            System.out.println("Establishing connection to server...");
 
-			// Connect to server and get the input and output streams
-			// String server = "10.12.182.147" (laptop)
-			// String server = "10.12.150.191" (desktop)
-			String server = "localhost";
-			clientSocket = new Socket(server, 1234);
-			toServer = new DataOutputStream(clientSocket.getOutputStream());
-			fromServer = new DataInputStream(clientSocket.getInputStream());
+            // Connect to server and get the input and output streams
+            // String server = "10.12.182.147" (laptop)
+            // String server = "10.12.150.191" (desktop)
+            String server = "localhost";
+            clientSocket = new Socket(server, 1234);
+            toServer = new DataOutputStream(clientSocket.getOutputStream());
+            fromServer = new DataInputStream(clientSocket.getInputStream());
 
-			byte [] encryptedMsg;
-			// Transferring message
-			System.out.println("Receiving encrypted message...");
-			int msgBytes = fromServer.readInt();
-			encryptedMsg = new byte[msgBytes];
-			fromServer.read(encryptedMsg);
+            byte [] encryptedMsg;
+            // Transferring message
+            System.out.println("Receiving encrypted message...");
+            int msgBytes = fromServer.readInt();
+            encryptedMsg = new byte[msgBytes];
+            fromServer.read(encryptedMsg);
 
-			try {
-				// Transferring certificate
-				System.out.println("Receiving certificate...");
-				int certBytes = fromServer.readInt();
-				byte [] data = new byte[certBytes];
-				fromServer.read(data);
+            try {
+                // Transferring certificate
+                System.out.println("Receiving certificate...");
+                int certBytes = fromServer.readInt();
+                byte [] data = new byte[certBytes];
+                fromServer.read(data);
 
-				System.out.println("Verifying certificate...");
+                System.out.println("Verifying certificate...");
 
-				InputStream certIn = new ByteArrayInputStream(data);
+                InputStream certIn = new ByteArrayInputStream(data);
 
-				// Receive certificate from server
-				// InputStream serverFis = new FileInputStream("cert/server.crt");
-				CertificateFactory serverCf = CertificateFactory.getInstance("X.509");
-				X509Certificate serverCert =(X509Certificate)serverCf.generateCertificate(certIn);
+                // Receive certificate from server
+                // InputStream serverFis = new FileInputStream("cert/server.crt");
+                CertificateFactory serverCf = CertificateFactory.getInstance("X.509");
+                X509Certificate serverCert =(X509Certificate)serverCf.generateCertificate(certIn);
 
-				serverPublicKey = getServerPublicKey(serverCert);
+                serverPublicKey = getServerPublicKey(serverCert);
 
-				// Decrypt message from SecStore
-        decryptCipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-        decryptCipher.init(Cipher.DECRYPT_MODE, serverPublicKey);
+                // Decrypt message from SecStore
+                decryptCipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+                decryptCipher.init(Cipher.DECRYPT_MODE, serverPublicKey);
 
-				encryptCipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-				encryptCipher.init(Cipher.ENCRYPT_MODE, serverPublicKey);
+                encryptCipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+                encryptCipher.init(Cipher.ENCRYPT_MODE, serverPublicKey);
 
-        byte[] decryptedBytes = decryptCipher.doFinal(encryptedMsg);
-        String decryptedMsg = new String(decryptedBytes, "UTF-8");
+                byte[] decryptedBytes = decryptCipher.doFinal(encryptedMsg);
+                String decryptedMsg = new String(decryptedBytes, "UTF-8");
 
-        // TODO: How to make message consistent between client and server?
-        assert(decryptedMsg.equals("Helllo this is SecStore!"));
-        System.out.println("SecStore identity verified.");
-				identityVerified = true; // Allow for file transfer
-			}
-			catch(Exception e) {
-				// e.printStackTrace();
-				System.out.println("Oh no, you were not verified. Bye!");
-			}
+                // TODO: How to make message consistent between client and server?
+                assert(decryptedMsg.equals("Helllo this is SecStore!"));
+                System.out.println("SecStore identity verified.");
+                identityVerified = true; // Allow for file transfer
+            }
+            catch(Exception e) {
+                // e.printStackTrace();
+                System.out.println("Oh no, you were not verified. Bye!");
+            }
 
-			// If check succeeded, send file
-			if(identityVerified) {
-				byte[] fileNameBytes = filename.getBytes();
-				int byteArrayLength = fileNameBytes.length;
-				System.out.println("Length of filename bytes is: " + byteArrayLength);
-				fileNameBytes = encryptMessage(fileNameBytes,protocol);
+            // If check succeeded, send file
+            if(identityVerified) {
+                byte[] fileNameBytes = filename.getBytes();
+                int byteArrayLength = fileNameBytes.length;
+                System.out.println("Length of filename bytes is: " + byteArrayLength);
+                fileNameBytes = encryptMessage(fileNameBytes,protocol);
 
+                System.out.println("Sending file...");
 
-				System.out.println("Sending file...");
+                // Send the filename
+                toServer.writeInt(0);
+                toServer.writeInt(byteArrayLength);
+                toServer.write(fileNameBytes);
+                toServer.flush();
 
-				// Send the filename
-				toServer.writeInt(0);
-				toServer.writeInt(byteArrayLength);
-				toServer.write(fileNameBytes);
-				toServer.flush();
+                // Open the file
+                fileInputStream = new FileInputStream(filename);
+                bufferedFileInputStream = new BufferedInputStream(fileInputStream);
 
-				// Open the file
-				fileInputStream = new FileInputStream(filename);
-				bufferedFileInputStream = new BufferedInputStream(fileInputStream);
-
-		        byte [] fromFileBuffer = new byte[117];
-
+                byte [] fromFileBuffer = new byte[117];
 
 
-        // Send the file
-		        for (boolean fileEnded = false; !fileEnded;) {
-	        	// Reading from the inputstream into the fromFileBuffer
-					numBytes = bufferedFileInputStream.read(fromFileBuffer);
-					fileEnded = numBytes < fromFileBuffer.length;
+                // Send the file
+                for (boolean fileEnded = false; !fileEnded;) {
+                // Reading from the inputstream into the fromFileBuffer
+                    numBytes = bufferedFileInputStream.read(fromFileBuffer);
+                    fileEnded = numBytes < fromFileBuffer.length;
 
-					byte[] encryptedFile = encryptMessage(fromFileBuffer,protocol);
+                    byte[] encryptedFile = encryptMessage(fromFileBuffer,protocol);
 
-					toServer.writeInt(1);
-					toServer.writeInt(numBytes);
-					toServer.write(encryptedFile);
-					toServer.flush();
-				}
+                    toServer.writeInt(1);
+                    toServer.writeInt(numBytes);
+                    toServer.write(encryptedFile);
+                    toServer.flush();
+                }
 
-		        bufferedFileInputStream.close();
-		        fileInputStream.close();
-			}
+                bufferedFileInputStream.close();
+                fileInputStream.close();
+            }
 
-			System.out.println("Closing connection...");
-	        toServer.writeInt(2);
-	        toServer.flush();
-	        int signal = fromServer.readInt();
-	        if (signal == 3) {
+            System.out.println("Closing connection...");
+            toServer.writeInt(2);
+            toServer.flush();
+            int signal = fromServer.readInt();
+            if (signal == 3) {
 
-	        }
-		} catch (Exception e) {
-			// Not valid!
-			// Some error occured, or server is not verified
-			e.printStackTrace();
+            }
+        } catch (Exception e) {
+            // Not valid!
+            // Some error occured, or server is not verified
+            e.printStackTrace();
 
-			try {
-				System.out.println("Some error occurred. Bye!");
+            try {
+                System.out.println("Some error occurred. Bye!");
         toServer.writeInt(2);
         toServer.flush();
-			}
-			catch(IOException ex) {
-				ex.printStackTrace();
-			}
-		}
-		long timeTaken = System.nanoTime() - timeStarted;
-		System.out.println("Program took: " + timeTaken/1000000.0 + "ms to run");
-	}
+            }
+            catch(IOException ex) {
+                ex.printStackTrace();
+            }
+        }
+        long timeTaken = System.nanoTime() - timeStarted;
+        System.out.println("Program took: " + timeTaken/1000000.0 + "ms to run");
+    }
 
-	public static PublicKey getServerPublicKey(X509Certificate serverCert) throws Exception {
-		// Load CA's public key
-		InputStream CAFis = new FileInputStream("jyCert/CA.crt");
-		CertificateFactory CACf = CertificateFactory.getInstance("X.509");
-		X509Certificate CAcert =(X509Certificate)CACf.generateCertificate(CAFis);
+    public static PublicKey getServerPublicKey(X509Certificate serverCert) throws Exception {
+        // Load CA's public key
+        InputStream CAFis = new FileInputStream("jyCert/CA.crt");
+        CertificateFactory CACf = CertificateFactory.getInstance("X.509");
+        X509Certificate CAcert =(X509Certificate)CACf.generateCertificate(CAFis);
 
-		PublicKey CAKey = CAcert.getPublicKey();
+        PublicKey CAKey = CAcert.getPublicKey();
 
-		serverCert.checkValidity(); // Throws a CertificateExpiredException or CertificateNotYetValidException if invalid
-		serverCert.verify(CAKey);
+        serverCert.checkValidity(); // Throws a CertificateExpiredException or CertificateNotYetValidException if invalid
+        serverCert.verify(CAKey);
 
-		System.out.println("Server certificate is signed by CA!");
+        System.out.println("Server certificate is signed by CA!");
 
-		// Get K_S^+
-		PublicKey serverPublicKey = serverCert.getPublicKey();
-		return serverPublicKey;
-	}
+        // Get K_S^+
+        PublicKey serverPublicKey = serverCert.getPublicKey();
+        return serverPublicKey;
+    }
 
-	public static byte[] encryptMessage(byte[] message, String protocol){
-		try {
-			if (protocol.equals("cp1")) {
-				byte[] encryptedMessage = null;
-				encryptedMessage = encryptCipher.doFinal(message);
-				return encryptedMessage;
+    public static byte[] encryptMessage(byte[] message, String protocol){
+        try {
+            if (protocol.equals("cp1")) {
+                byte[] encryptedMessage = null;
+                encryptedMessage = encryptCipher.doFinal(message);
+                return encryptedMessage;
 
-			} else if (protocol.equals("cp2")){
-					return null;
-			}
+            } else if (protocol.equals("cp2")){
+                    return null;
+            }
 
-			return null;
-		} catch (Exception ex) {
-			ex.printStackTrace();
-		}
-		return null;
+            return null;
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        return null;
 
-	}
+    }
 }
