@@ -10,6 +10,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.Socket;
 
+import java.util.Arrays;
+
 import java.security.cert.X509Certificate;
 import java.security.cert.CertificateFactory;
 import java.security.cert.CertificateException;
@@ -103,7 +105,10 @@ public class ClientWithoutSecurity {
                 encryptCipher.init(Cipher.ENCRYPT_MODE, serverPublicKey);
 
                 byte[] decryptedNonce = decryptCipher.doFinal(encryptedMsg);
-                assert(decryptedNonce.equals(nonce));
+                if(!Arrays.equals(decryptedNonce, nonce)) {
+                    System.out.println("Nonce was not equal!");                    
+                    throw new Exception("Nonce was not equal!");                    
+                }
                 System.out.println("Nonce is valid. SecStore identity verified.");
                 identityVerified = true; // Allow for file transfer
             }
@@ -189,14 +194,19 @@ public class ClientWithoutSecurity {
 
         serverCert.checkValidity(); // Throws a CertificateExpiredException or CertificateNotYetValidException if invalid
         serverCert.verify(CAKey);
+        System.out.println("Server certificate is signed by CA!");
+
+        System.out.println("Checking owner of certificate...");
 
         X500Principal CAPrincipal = serverCert.getSubjectX500Principal();
         String name = CAPrincipal.getName();
 
         // Check that the name is equal to the expected signer
-        assert(name.equals("1.2.840.113549.1.9.1=#161d6a696e6779755f6b6f68406d796d61696c2e737574642e6564752e7367,CN=SUTD,OU=ISTD,O=SUTD,L=Singapore,ST=Singapore,C=SG"));
-
-        System.out.println("Server certificate is signed by CA!");
+        String expectedName = "1.2.840.113549.1.9.1=#161d6a696e6779755f6b6f68406d796d61696c2e737574642e6564752e7367,CN=SUTD,OU=ISTD,O=SUTD,L=Singapore,ST=Singapore,C=SG";
+        if(!name.equals(expectedName)) {
+            System.out.println("Certificate is not owned by SecStore!");
+            throw new Exception("Certificate is not owned by SecStore!");                    
+        }
 
         // Get K_S^+
         PublicKey serverPublicKey = serverCert.getPublicKey();
