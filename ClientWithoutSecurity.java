@@ -14,6 +14,8 @@ import java.security.cert.X509Certificate;
 import java.security.cert.CertificateFactory;
 import java.security.cert.CertificateException;
 import java.security.PublicKey;
+import java.security.SecureRandom;
+import javax.security.auth.x500.X500Principal;
 import javax.crypto.Cipher;
 
 public class ClientWithoutSecurity {
@@ -58,9 +60,19 @@ public class ClientWithoutSecurity {
             toServer = new DataOutputStream(clientSocket.getOutputStream());
             fromServer = new DataInputStream(clientSocket.getInputStream());
 
+            // Tell server to receive nonce
+            toServer.writeInt(1);
+            // Send nonce
+            int nonceSize = 64;
+            SecureRandom random = new SecureRandom();
+            byte nonce[] = new byte[nonceSize];
+            random.nextBytes(nonce);
+            toServer.writeInt(nonceSize);
+            toServer.write(nonce);
+
             byte [] encryptedMsg;
             // Transferring message
-            System.out.println("Receiving encrypted message...");
+            System.out.println("Receiving encrypted nonce...");
             int msgBytes = fromServer.readInt();
             encryptedMsg = new byte[msgBytes];
             fromServer.read(encryptedMsg);
@@ -90,12 +102,9 @@ public class ClientWithoutSecurity {
                 encryptCipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
                 encryptCipher.init(Cipher.ENCRYPT_MODE, serverPublicKey);
 
-                byte[] decryptedBytes = decryptCipher.doFinal(encryptedMsg);
-                String decryptedMsg = new String(decryptedBytes, "UTF-8");
-
-                // TODO: How to make message consistent between client and server?
-                assert(decryptedMsg.equals("Helllo this is SecStore!"));
-                System.out.println("SecStore identity verified.");
+                byte[] decryptedNonce = decryptCipher.doFinal(encryptedMsg);
+                assert(decryptedNonce.equals(nonce));
+                System.out.println("Nonce is valid. SecStore identity verified.");
                 identityVerified = true; // Allow for file transfer
             }
             catch(Exception e) {
@@ -169,6 +178,8 @@ public class ClientWithoutSecurity {
     }
 
     public static PublicKey getServerPublicKey(X509Certificate serverCert) throws Exception {
+        System.out.println("Checking server certificate...");
+
         // Load CA's public key
         InputStream CAFis = new FileInputStream("jyCert/CA.crt");
         CertificateFactory CACf = CertificateFactory.getInstance("X.509");
@@ -178,6 +189,12 @@ public class ClientWithoutSecurity {
 
         serverCert.checkValidity(); // Throws a CertificateExpiredException or CertificateNotYetValidException if invalid
         serverCert.verify(CAKey);
+
+        X500Principal CAPrincipal = serverCert.getSubjectX500Principal();
+        String name = CAPrincipal.getName();
+
+        // Check that the name is equal to the expected signer
+        assert(name.equals("1.2.840.113549.1.9.1=#161d6a696e6779755f6b6f68406d796d61696c2e737574642e6564752e7367,CN=SUTD,OU=ISTD,O=SUTD,L=Singapore,ST=Singapore,C=SG"));
 
         System.out.println("Server certificate is signed by CA!");
 

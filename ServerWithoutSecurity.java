@@ -24,9 +24,7 @@ public class ServerWithoutSecurity {
     static Cipher encryptCipher;
     static Cipher decryptCipher;
 
-
     public static void main(String[] args){
-
         ServerSocket welcomeSocket = null;
         Socket connectionSocket = null;
         DataOutputStream toClient = null;
@@ -42,24 +40,37 @@ public class ServerWithoutSecurity {
             toClient = new DataOutputStream(connectionSocket.getOutputStream());
 
             // Send certificate to client
+            int clientSignal = fromClient.readInt();
 
-            // Start the h a n d s h a k e
-            try {
-                initialiseCipher();
-                byte[] encryptedMsg = encryptString("Helllo this is SecStore!");
-                toClient.writeInt(encryptedMsg.length); // Write length of message in bytes
-                toClient.write(encryptedMsg);
+            // Time to start.
+            if(clientSignal == 1) {
+                // Start the h a n d s h a k e
+                // Read nonce
+                int nonceSize = fromClient.readInt();
+                byte[] nonce = new byte[nonceSize];
+                fromClient.read(nonce);
+                System.out.println("Received nonce from client.");
 
-                Path path = Paths.get("jyCert/server.crt");
-                byte[] data = Files.readAllBytes(path);
-                toClient.writeInt(data.length); // Write length of certificate in bytes
-                toClient.write(data);
-            }
-            catch(EOFException ex) {
-                ex.printStackTrace();
-            }
-            catch(IOException ex) {
-                ex.printStackTrace();
+                try {
+                    initialiseCipher();
+                    System.out.println("Encrypting nonce...");
+                    byte[] encryptedNonce = encryptBytes(nonce);
+                    // String nonceStr = String.valueOf(nonce);
+                    // byte[] encryptedMsg = encryptString(nonceStr);
+                    toClient.writeInt(encryptedNonce.length); // Write length of message in bytes
+                    toClient.write(encryptedNonce);
+
+                    Path path = Paths.get("jyCert/server.crt");
+                    byte[] data = Files.readAllBytes(path);
+                    toClient.writeInt(data.length); // Write length of certificate in bytes
+                    toClient.write(data);
+                }
+                catch(EOFException ex) {
+                    ex.printStackTrace();
+                }
+                catch(IOException ex) {
+                    ex.printStackTrace();
+                }
             }
 
             while (!connectionSocket.isClosed()) {
@@ -111,11 +122,16 @@ public class ServerWithoutSecurity {
 
     public static byte[] encryptString(String s) throws Exception {
         // Read private key from privateServer.pem
+        // encrypt digest message
+        byte[] encryptedBytes = encryptCipher.doFinal(s.getBytes());
+        return encryptedBytes;
+    }
 
-    // encrypt digest message
-
-    byte[] encryptedBytes = encryptCipher.doFinal(s.getBytes());
-    return encryptedBytes;
+    public static byte[] encryptBytes(byte[] b) throws Exception {
+        // Read private key from privateServer.pem
+        // encrypt digest message
+        byte[] encryptedBytes = encryptCipher.doFinal(b);
+        return encryptedBytes;
     }
 
     public static byte[] decryptBytes(byte[] encryptedByte) throws Exception {
@@ -133,20 +149,12 @@ public class ServerWithoutSecurity {
     }
 
     public static Key getPrivateKey() throws Exception {
-        Path privateKeyPath = Paths.get("jyCert/privateServer8.pem");
+        // Load private key from .der file
+        Path privateKeyPath = Paths.get("jyCert/privateServer.der");
         byte[] privateKeyBytes = Files.readAllBytes(privateKeyPath);
-        String privateKeyString = new String(privateKeyBytes, "UTF-8");
-
-        // Strip header, footer
-        privateKeyString = privateKeyString.replace("-----BEGIN PRIVATE KEY-----", "")
-            .replace("-----END PRIVATE KEY-----", "")
-            .replaceAll("\\s", "");
-
-        byte[] privateKeyRepresentation = Base64.getDecoder().decode(privateKeyString.getBytes("UTF-8"));
 
         KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-        Key privateKey = keyFactory.generatePrivate(new PKCS8EncodedKeySpec(privateKeyRepresentation));
-
+        Key privateKey = keyFactory.generatePrivate(new PKCS8EncodedKeySpec(privateKeyBytes));
         return privateKey;
     }
 
