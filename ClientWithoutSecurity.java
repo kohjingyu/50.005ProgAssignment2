@@ -16,26 +16,32 @@ import java.security.cert.X509Certificate;
 import java.security.cert.CertificateFactory;
 import java.security.cert.CertificateException;
 import java.security.PublicKey;
+import java.security.Key;
 import java.security.SecureRandom;
 import javax.security.auth.x500.X500Principal;
 import javax.crypto.Cipher;
+import javax.crypto.spec.SecretKeySpec;
+
 
 public class ClientWithoutSecurity {
-    static Cipher encryptCipher;
-    static Cipher decryptCipher;
+    static Cipher rsaEncryptCipher;
+    static Cipher rsaDecryptCipher;
+    static Cipher aesDecryptCipher;
+    static Cipher aesEncryptCipher;
+    static Key aesSymmetricKey;
 
     public static void main(String[] args) {
         BufferedReader stdIn = new BufferedReader(new InputStreamReader(System.in));
         System.out.println("Enter name of file to be sent:");
         String filename = "";
-        
+
         try {
             filename = stdIn.readLine();
         } catch (IOException ioEx) {
             ioEx.printStackTrace();
         }
 
-        String protocol = "cp1";
+        String protocol = "cp2";
         PublicKey serverPublicKey;
 
         int numBytes = 0;
@@ -73,11 +79,13 @@ public class ClientWithoutSecurity {
             toServer.write(nonce);
 
             byte [] encryptedMsg;
-            // Transferring message
+            // Transferring message (nonce)
             System.out.println("Receiving encrypted nonce...");
             int msgBytes = fromServer.readInt();
             encryptedMsg = new byte[msgBytes];
             fromServer.read(encryptedMsg);
+
+
 
             try {
                 // Transferring certificate
@@ -96,29 +104,47 @@ public class ClientWithoutSecurity {
                 X509Certificate serverCert =(X509Certificate)serverCf.generateCertificate(certIn);
 
                 serverPublicKey = getServerPublicKey(serverCert);
+                //Initialise Cipher
+                rsaDecryptCipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+                rsaDecryptCipher.init(Cipher.DECRYPT_MODE, serverPublicKey);
+                rsaEncryptCipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+                rsaEncryptCipher.init(Cipher.ENCRYPT_MODE, serverPublicKey);
+
+
 
                 // Decrypt message from SecStore
-                decryptCipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-                decryptCipher.init(Cipher.DECRYPT_MODE, serverPublicKey);
 
-                encryptCipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-                encryptCipher.init(Cipher.ENCRYPT_MODE, serverPublicKey);
-
-                byte[] decryptedNonce = decryptCipher.doFinal(encryptedMsg);
+                byte[] decryptedNonce = rsaDecryptCipher.doFinal(encryptedMsg);
                 if(!Arrays.equals(decryptedNonce, nonce)) {
-                    System.out.println("Nonce was not equal!");                    
-                    throw new Exception("Nonce was not equal!");                    
+                    System.out.println("Nonce was not equal!");
+                    throw new Exception("Nonce was not equal!");
                 }
                 System.out.println("Nonce is valid. SecStore identity verified.");
                 identityVerified = true; // Allow for file transfer
             }
             catch(Exception e) {
-                // e.printStackTrace();
+                e.printStackTrace();
                 System.out.println("Oh no, you were not verified. Bye!");
             }
 
             // If check succeeded, send file
             if(identityVerified) {
+                System.out.println("Receiving session key...");
+                int encryptedSessionKeyLength = fromServer.readInt();
+                byte[] encryptedSessionKey = new byte[encryptedSessionKeyLength];
+                fromServer.read(encryptedSessionKey);
+                byte[] decryptedSessionKey = rsaDecryptCipher.doFinal(encryptedSessionKey);
+                aesSymmetricKey = new SecretKeySpec(decryptedSessionKey,"AES");
+
+                // EncodedKeySpec eks = new X509EncodedKeySpec(decryptedSessionKey);
+                // SecretKeySpec sks = new SecretKeySpec()
+
+                //Initialising AES Cipher
+                aesDecryptCipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
+                aesDecryptCipher.init(Cipher.DECRYPT_MODE, aesSymmetricKey);
+                aesEncryptCipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
+                aesEncryptCipher.init(Cipher.ENCRYPT_MODE, aesSymmetricKey);
+
                 byte[] fileNameBytes = filename.getBytes();
                 int byteArrayLength = fileNameBytes.length;
                 System.out.println("Length of filename bytes is: " + byteArrayLength);
@@ -205,7 +231,7 @@ public class ClientWithoutSecurity {
         String expectedName = "1.2.840.113549.1.9.1=#161d6a696e6779755f6b6f68406d796d61696c2e737574642e6564752e7367,CN=SUTD,OU=ISTD,O=SUTD,L=Singapore,ST=Singapore,C=SG";
         if(!name.equals(expectedName)) {
             System.out.println("Certificate is not owned by SecStore!");
-            throw new Exception("Certificate is not owned by SecStore!");                    
+            throw new Exception("Certificate is not owned by SecStore!");
         }
 
         // Get K_S^+
@@ -217,13 +243,14 @@ public class ClientWithoutSecurity {
         try {
             if (protocol.equals("cp1")) {
                 byte[] encryptedMessage = null;
-                encryptedMessage = encryptCipher.doFinal(message);
+                encryptedMessage = rsaEncryptCipher.doFinal(message);
                 return encryptedMessage;
 
-            } else if (protocol.equals("cp2")){
-                    return null;
+            } else if (protocol.equals("cp2")) {
+                byte[] encryptedMessage = null;
+                encryptedMessage = aesEncryptCipher.doFinal(message);
+                return encryptedMessage;
             }
-
             return null;
         } catch (Exception ex) {
             ex.printStackTrace();

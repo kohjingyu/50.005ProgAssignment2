@@ -15,14 +15,18 @@ import java.nio.charset.StandardCharsets;
 
 import java.util.Base64;
 import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.KeyGenerator;
 import java.security.Key;
 import java.security.KeyFactory;
 import java.security.spec.PKCS8EncodedKeySpec;
 
 public class ServerWithoutSecurity {
-    Key privateKey;
-    static Cipher encryptCipher;
-    static Cipher decryptCipher;
+    static SecretKey aesSymmetricKey;
+    static final String PROTOCOL = "cp2";
+    static Cipher rsaEncryptCipher;
+    static Cipher rsaDecryptCipher;
+    static Cipher aesDecryptCipher;
 
     public static void main(String[] args){
         ServerSocket welcomeSocket = null;
@@ -64,6 +68,11 @@ public class ServerWithoutSecurity {
                     byte[] data = Files.readAllBytes(path);
                     toClient.writeInt(data.length); // Write length of certificate in bytes
                     toClient.write(data);
+
+                    System.out.println("Encrypting session key...");
+                    byte[] encryptedSymmetricKey = encryptBytes(aesSymmetricKey.getEncoded());
+                    toClient.writeInt(encryptedSymmetricKey.length);
+                    toClient.write(encryptedSymmetricKey);
                 }
                 catch(EOFException ex) {
                     ex.printStackTrace();
@@ -82,10 +91,10 @@ public class ServerWithoutSecurity {
                     System.out.println("Receiving filename...");
 
                     int numBytes = fromClient.readInt();
-                    byte [] encryptedfilename = new byte[128];
+                    byte [] encryptedfilename = new byte[aesDecryptCipher.getBlockSize()];
                     fromClient.read(encryptedfilename);
                     System.out.println("number of Bytes expected: " + numBytes);
-                    byte[] filename = decryptBytes(encryptedfilename);
+                    byte[] filename = decryptBytes(encryptedfilename,PROTOCOL);
                     System.out.println("Filename is " + new String(filename));
                     fileOutputStream = new FileOutputStream("recv/"+new String(filename, 0, numBytes));
                     bufferedFileOutputStream = new BufferedOutputStream(fileOutputStream);
@@ -96,7 +105,7 @@ public class ServerWithoutSecurity {
                     int numBytes = fromClient.readInt();
                     byte[] encryptedBlock = new byte[128];
                     fromClient.read(encryptedBlock);
-                    byte[] decryptedBlock = decryptBytes(encryptedBlock);
+                    byte[] decryptedBlock = decryptBytes(encryptedBlock,PROTOCOL);
 
                     if (numBytes > 0)
                         bufferedFileOutputStream.write(decryptedBlock, 0, numBytes);
@@ -123,29 +132,38 @@ public class ServerWithoutSecurity {
     public static byte[] encryptString(String s) throws Exception {
         // Read private key from privateServer.pem
         // encrypt digest message
-        byte[] encryptedBytes = encryptCipher.doFinal(s.getBytes());
+        byte[] encryptedBytes = rsaEncryptCipher.doFinal(s.getBytes());
         return encryptedBytes;
     }
 
     public static byte[] encryptBytes(byte[] b) throws Exception {
         // Read private key from privateServer.pem
         // encrypt digest message
-        byte[] encryptedBytes = encryptCipher.doFinal(b);
+        byte[] encryptedBytes = rsaEncryptCipher.doFinal(b);
         return encryptedBytes;
     }
 
-    public static byte[] decryptBytes(byte[] encryptedByte) throws Exception {
-        byte[] decryptedBytes = decryptCipher.doFinal(encryptedByte);
-        return decryptedBytes;
-    }
-
-
     public static void initialiseCipher() throws Exception{
         Key privateKey = getPrivateKey();
-        encryptCipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-        encryptCipher.init(Cipher.ENCRYPT_MODE, privateKey);
-        decryptCipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-        decryptCipher.init(Cipher.DECRYPT_MODE, privateKey);
+        rsaEncryptCipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+        rsaEncryptCipher.init(Cipher.ENCRYPT_MODE, privateKey);
+        rsaDecryptCipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+        rsaDecryptCipher.init(Cipher.DECRYPT_MODE, privateKey);
+        aesSymmetricKey = KeyGenerator.getInstance("AES").generateKey();
+        aesDecryptCipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
+        aesDecryptCipher.init(Cipher.DECRYPT_MODE, aesSymmetricKey);
+    }
+
+    public static byte[] decryptBytes(byte[] encryptedByte, String protocol) throws Exception {
+        if (protocol.equals("cp1")) {
+            byte[] decryptedBytes = rsaDecryptCipher.doFinal(encryptedByte);
+            return decryptedBytes;
+        } else if (protocol.equals("cp2")) {
+            byte[] decryptedBytes = aesDecryptCipher.doFinal(encryptedByte);
+            return decryptedBytes;
+        } else {
+            throw new IllegalArgumentException();
+        }
     }
 
     public static Key getPrivateKey() throws Exception {
