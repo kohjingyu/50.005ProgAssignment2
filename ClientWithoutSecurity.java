@@ -26,22 +26,23 @@ import javax.crypto.spec.SecretKeySpec;
 public class ClientWithoutSecurity {
     static Cipher rsaEncryptCipher;
     static Cipher rsaDecryptCipher;
-    static Cipher aesDecryptCipher;
-    static Cipher aesEncryptCipher;
+    static Cipher decryptCipher;
+    static Cipher encryptCipher;
     static Key aesSymmetricKey;
 
     public static void main(String[] args) {
         BufferedReader stdIn = new BufferedReader(new InputStreamReader(System.in));
-        System.out.println("Enter name of file to be sent:");
         String filename = "";
-
+        String protocol = "";
         try {
+            System.out.println("Enter protocol(RSA/AES):");
+            protocol = stdIn.readLine();
+            System.out.println("Enter name of file to be sent:");
             filename = stdIn.readLine();
         } catch (IOException ioEx) {
             ioEx.printStackTrace();
         }
 
-        String protocol = "cp2";
         PublicKey serverPublicKey;
 
         int numBytes = 0;
@@ -54,8 +55,8 @@ public class ClientWithoutSecurity {
         FileInputStream fileInputStream = null;
         BufferedInputStream bufferedFileInputStream = null;
 
-        long timeStarted = System.nanoTime();
         boolean identityVerified = false;
+        long timeStarted = System.nanoTime();
 
         try {
             System.out.println("Establishing connection to server...");
@@ -104,11 +105,10 @@ public class ClientWithoutSecurity {
                 X509Certificate serverCert =(X509Certificate)serverCf.generateCertificate(certIn);
 
                 serverPublicKey = getServerPublicKey(serverCert);
-                //Initialise Cipher
-                rsaDecryptCipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-                rsaDecryptCipher.init(Cipher.DECRYPT_MODE, serverPublicKey);
-                rsaEncryptCipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-                rsaEncryptCipher.init(Cipher.ENCRYPT_MODE, serverPublicKey);
+
+                //Initialise RSA Cipher
+                rsaDecryptCipher = initialiseCipher("RSA-D",serverPublicKey);
+                rsaEncryptCipher = initialiseCipher("RSA-E",serverPublicKey);
 
 
 
@@ -129,26 +129,27 @@ public class ClientWithoutSecurity {
 
             // If check succeeded, send file
             if(identityVerified) {
-                System.out.println("Receiving session key...");
-                int encryptedSessionKeyLength = fromServer.readInt();
-                byte[] encryptedSessionKey = new byte[encryptedSessionKeyLength];
-                fromServer.read(encryptedSessionKey);
-                byte[] decryptedSessionKey = rsaDecryptCipher.doFinal(encryptedSessionKey);
-                aesSymmetricKey = new SecretKeySpec(decryptedSessionKey,"AES");
+                if (protocol.equals("AES")) {
+                    System.out.println("Receiving session key...");
+                    int encryptedSessionKeyLength = fromServer.readInt();
+                    byte[] encryptedSessionKey = new byte[encryptedSessionKeyLength];
+                    fromServer.read(encryptedSessionKey);
+                    byte[] decryptedSessionKey = rsaDecryptCipher.doFinal(encryptedSessionKey);
+                    aesSymmetricKey = new SecretKeySpec(decryptedSessionKey,"AES");
+                    encryptCipher = initialiseCipher("AES-E", aesSymmetricKey);
+                } else if (protocol.equals("RSA")){
+                    encryptCipher = rsaEncryptCipher;
+                }
 
                 // EncodedKeySpec eks = new X509EncodedKeySpec(decryptedSessionKey);
                 // SecretKeySpec sks = new SecretKeySpec()
 
                 //Initialising AES Cipher
-                aesDecryptCipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
-                aesDecryptCipher.init(Cipher.DECRYPT_MODE, aesSymmetricKey);
-                aesEncryptCipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
-                aesEncryptCipher.init(Cipher.ENCRYPT_MODE, aesSymmetricKey);
 
                 byte[] fileNameBytes = filename.getBytes();
                 int byteArrayLength = fileNameBytes.length;
                 System.out.println("Length of filename bytes is: " + byteArrayLength);
-                fileNameBytes = encryptMessage(fileNameBytes,protocol);
+                fileNameBytes = encryptCipher.doFinal(fileNameBytes);
 
                 System.out.println("Sending file...");
 
@@ -171,7 +172,7 @@ public class ClientWithoutSecurity {
                     numBytes = bufferedFileInputStream.read(fromFileBuffer);
                     fileEnded = numBytes < fromFileBuffer.length;
 
-                    byte[] encryptedFile = encryptMessage(fromFileBuffer,protocol);
+                    byte[] encryptedFile = encryptCipher.doFinal(fromFileBuffer);
 
                     toServer.writeInt(1);
                     toServer.writeInt(numBytes);
@@ -183,7 +184,7 @@ public class ClientWithoutSecurity {
                 fileInputStream.close();
             }
 
-            System.out.println("Closing connection...");
+            System.out.println("Closing connection, waiting for Server...");
             toServer.writeInt(2);
             toServer.flush();
             int signal = fromServer.readInt();
@@ -239,23 +240,27 @@ public class ClientWithoutSecurity {
         return serverPublicKey;
     }
 
-    public static byte[] encryptMessage(byte[] message, String protocol){
-        try {
-            if (protocol.equals("cp1")) {
-                byte[] encryptedMessage = null;
-                encryptedMessage = rsaEncryptCipher.doFinal(message);
-                return encryptedMessage;
-
-            } else if (protocol.equals("cp2")) {
-                byte[] encryptedMessage = null;
-                encryptedMessage = aesEncryptCipher.doFinal(message);
-                return encryptedMessage;
-            }
-            return null;
-        } catch (Exception ex) {
-            ex.printStackTrace();
+    public static Cipher initialiseCipher(String type, Key key) throws Exception{
+        Cipher cipher;
+        switch(type) {
+            case "RSA-E":
+                cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+                cipher.init(Cipher.ENCRYPT_MODE, key);
+                return cipher;
+            case "RSA-D":
+                cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+                cipher.init(Cipher.DECRYPT_MODE, key);
+                return cipher;
+            case "AES-D":
+                cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
+                cipher.init(Cipher.DECRYPT_MODE, key);
+                return cipher;
+            case "AES-E":
+                cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
+                cipher.init(Cipher.ENCRYPT_MODE, key);
+                return cipher;
+            default:
+                throw new IllegalArgumentException();
         }
-        return null;
-
     }
 }
