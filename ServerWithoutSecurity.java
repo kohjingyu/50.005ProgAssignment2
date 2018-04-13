@@ -156,6 +156,7 @@ public class ServerWithoutSecurity {
                 }
             } catch (Exception e) {
                 e.printStackTrace();
+                break;
             }
         }
 

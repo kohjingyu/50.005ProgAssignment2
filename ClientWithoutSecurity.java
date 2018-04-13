@@ -63,8 +63,9 @@ public class ClientWithoutSecurity {
 
             // Connect to server and get the input and output streams
             // String server = "10.12.182.147" (laptop)
-            // String server = "10.12.150.191" (desktop)
-            String server = "localhost";
+            // (desktop)
+            String server = "10.12.150.191";
+            // String server = "localhost";
             clientSocket = new Socket(server, 1234);
             toServer = new DataOutputStream(clientSocket.getOutputStream());
             fromServer = new DataInputStream(clientSocket.getInputStream());
