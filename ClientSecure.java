@@ -23,7 +23,7 @@ import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
 
 
-public class ClientWithoutSecurity {
+public class ClientSecure {
     static Cipher rsaEncryptCipher;
     static Cipher rsaDecryptCipher;
     static Cipher decryptCipher;
@@ -64,8 +64,8 @@ public class ClientWithoutSecurity {
             // Connect to server and get the input and output streams
             // String server = "10.12.182.147" (laptop)
             // (desktop)
-            String server = "10.12.150.191";
-            // String server = "localhost";
+            // String server = "10.12.150.191";
+            String server = "localhost";
             clientSocket = new Socket(server, 1234);
             toServer = new DataOutputStream(clientSocket.getOutputStream());
             fromServer = new DataInputStream(clientSocket.getInputStream());
