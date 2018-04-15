@@ -54,6 +54,14 @@ The user will be prompted to select the encryption mode as well. **Note:** It is
 
 Next, the user is asked for the file to be transferred. Enter the name of the file in the current working directory, such as `rr.txt` (the Mona Lisa photo). Afterwards, the file will be transferred to the server and saved to the `recv/` folder.
 
+## Specifications
+
+### AP
+
+The specification of the AP protocol is as follows:
+
+![AP Protocol Specification](images/AP_spec.png)
+
 ### Example of Successful Output
 
 Upon a successful execution, the client will close its connection to the server and report the running time. The server will also stop accepting incoming submissions.

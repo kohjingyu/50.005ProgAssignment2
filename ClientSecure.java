@@ -88,7 +88,6 @@ public class ClientSecure {
             fromServer.read(encryptedMsg);
 
 
-
             try {
                 // Transferring certificate
                 System.out.println("Receiving certificate...");
