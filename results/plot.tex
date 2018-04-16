@@ -1,0 +1,39 @@
+\documentclass{standalone}
+
+\usepackage{pgfplots, pgfplotstable}
+
+\pgfplotstableread{
+Size RSATime AESTime
+0.012 0.76080018 0.484354586
+2.400 14.490352522 0.539214628
+2000 18.074681871 0.73211026
+7.100 0.413021158 0.327995402
+395 3.870415026 0.413074943
+%88000000 606813.020922 4998.455772
+}\datatable
+
+\begin{document}
+\begin{tikzpicture}
+\begin{axis}[
+    legend pos=outer north east,
+    xlabel={File Size (kB)},
+    ylabel={Time (s)}
+]
+\addplot [only marks, mark = *] table[y=RSATime] {\datatable};
+\addplot [thick, red] table[
+    y={create col/linear regression={y=RSATime}}
+] % compute a linear regression from the input table
+{\datatable};
+\addlegendentry{$RSA$}
+\addlegendentry{RSA trend line}
+
+\addplot [only marks, mark = +] table[y=AESTime] {\datatable};
+\addplot [thick, blue] table[
+    y={create col/linear regression={y=AESTime}}
+] % compute a linear regression from the input table
+{\datatable};
+\addlegendentry{$AES$}
+\addlegendentry{AES trend line}
+\end{axis}
+\end{tikzpicture}
+\end{document}

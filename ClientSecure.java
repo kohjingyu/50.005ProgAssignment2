@@ -62,10 +62,11 @@ public class ClientSecure {
             System.out.println("Establishing connection to server...");
 
             // Connect to server and get the input and output streams
-            // String server = "10.12.182.147" (laptop)
+            // (laptop)
+            String server = "10.12.182.147";
             // (desktop)
             // String server = "10.12.150.191";
-            String server = "localhost";
+            // String server = "localhost";
             clientSocket = new Socket(server, 1234);
             toServer = new DataOutputStream(clientSocket.getOutputStream());
             fromServer = new DataInputStream(clientSocket.getInputStream());
@@ -85,7 +86,7 @@ public class ClientSecure {
             System.out.println("Receiving encrypted nonce...");
             int msgBytes = fromServer.readInt();
             encryptedMsg = new byte[msgBytes];
-            fromServer.read(encryptedMsg);
+            fromServer.readFully(encryptedMsg);
 
 
             try {
@@ -93,7 +94,7 @@ public class ClientSecure {
                 System.out.println("Receiving certificate...");
                 int certBytes = fromServer.readInt();
                 byte [] data = new byte[certBytes];
-                fromServer.read(data);
+                fromServer.readFully(data);
 
                 System.out.println("Verifying certificate...");
 
@@ -133,7 +134,7 @@ public class ClientSecure {
                     System.out.println("Receiving session key...");
                     int encryptedSessionKeyLength = fromServer.readInt();
                     byte[] encryptedSessionKey = new byte[encryptedSessionKeyLength];
-                    fromServer.read(encryptedSessionKey);
+                    fromServer.readFully(encryptedSessionKey);
                     byte[] decryptedSessionKey = rsaDecryptCipher.doFinal(encryptedSessionKey);
                     aesSymmetricKey = new SecretKeySpec(decryptedSessionKey,"AES");
                     encryptCipher = initialiseCipher("AES-E", aesSymmetricKey);

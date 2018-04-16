@@ -62,11 +62,27 @@ The specification of the AP protocol is as follows:
 
 ![AP Protocol Specification](images/AP_spec.png)
 
+### CP-1
+
+![CP-1 Protocol Specification](images/CP1_spec.png)
+
+### CP-2
+
+![CP-2 Protocol Specification](images/CP2_spec.png)
+
 ### Example of Successful Output
 
 Upon a successful execution, the client will close its connection to the server and report the running time. The server will also stop accepting incoming submissions.
 
 ![Successful Execution](images/success.png)
+
+## Results
+
+We transferred files of varying sizes. We observed the following trend:
+
+![Plot](images/plot.png)
+
+It is clear that the AES encryption standard is much quicker than using RSA for file transfer.
 
 ## Conclusion
 
