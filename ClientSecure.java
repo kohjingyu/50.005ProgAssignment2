@@ -166,6 +166,7 @@ public class ClientSecure {
                 fileInputStream.read(fileData);
 
                 bufferedFileInputStream = new BufferedInputStream(fileInputStream);
+                toServer.writeInt(1);
 
                 int threadsReady = fromServer.readInt();
 

@@ -140,7 +140,8 @@ public class ServerSecure {
                         AtomicInteger ai = new AtomicInteger();
                         CyclicBarrier cb = new CyclicBarrier(NUMBER_OF_THREADS);
                         for (int i = 0; i < NUMBER_OF_THREADS; i++){
-                            MyRunnable mr = new MyRunnable(i,ai,NUMBER_OF_THREADS,decryptCipher,cb);
+                            decryptCipher = initialiseCipher("RSA-D");
+                            MyRunnable mr = new MyRunnable(i,ai,NUMBER_OF_THREADS,decryptCipher,cb, bufferedFileOutputStream);
                             multithread[i] = new Thread(mr);
                             multithread[i].start();
                         }
@@ -230,13 +231,15 @@ class MyRunnable implements Runnable{
     private AtomicInteger turn;
     private Cipher decryptCipher;
     private CyclicBarrier cb;
-    MyRunnable(int id, AtomicInteger turn, int numberOfThreads, Cipher decryptCipher, CyclicBarrier cb){
+    private BufferedOutputStream bufferedFileOutputStream;
+    MyRunnable(int id, AtomicInteger turn, int numberOfThreads, Cipher decryptCipher, CyclicBarrier cb, BufferedOutputStream bufferedFileOutputStream){
         this.id = id;
         this.socket = 1235 + id;
         this.turn = turn;
         this.NUMBER_OF_THREADS = numberOfThreads;
         this.decryptCipher = decryptCipher;
         this.cb = cb;
+        this.bufferedFileOutputStream = bufferedFileOutputStream;
     }
     public void run(){
         ServerSocket welcomeSocket = null;
@@ -262,12 +265,16 @@ class MyRunnable implements Runnable{
                     welcomeSocket.close();
                     return;
                 }
+                System.out.println(id + ": Waiting for file from client");
                 int numBytes = fromClient.readInt();
+                System.out.println("" + id + ": " + numBytes);
                 byte[] encryptedBlock = new byte[128];
                 fromClient.readFully(encryptedBlock);
+                System.out.println(id + ": encryptedBlock length: " + encryptedBlock.length);
                 byte[] decryptedBlock = decryptCipher.doFinal(encryptedBlock);
                 if (numBytes > 0){
-                    while (turn.get() != id){}
+                    while (turn.get() != id){
+                    }
                     bufferedFileOutputStream.write(decryptedBlock, 0, numBytes);
                     bufferedFileOutputStream.flush();
                     turn.set((id + 1)%NUMBER_OF_THREADS);
