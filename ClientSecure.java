@@ -170,9 +170,9 @@ public class ClientSecure {
                 FileSendThread[] threads = new FileSendThread[NUM_THREADS];
 
                 for(int i = 0; i < NUM_THREADS; i ++) {
-                    // Socket threadClient = new Socket(server, 1235 + i);
-                    // DataOutputStream threadServer = new DataOutputStream(threadClient.getOutputStream());
-                    FileSendThread t1 = new FileSendThread(toServer, i, fileData);
+                    Socket threadClient = new Socket(server, 1235 + i);
+                    DataOutputStream threadServer = new DataOutputStream(threadClient.getOutputStream());
+                    FileSendThread t1 = new FileSendThread(threadServer, i, fileData);
                     t1.start();
                     threads[i] = t1;
                 }
