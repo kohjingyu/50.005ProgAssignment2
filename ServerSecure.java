@@ -232,12 +232,14 @@ class MyRunnable implements Runnable{
     private Cipher decryptCipher;
     private CyclicBarrier cb;
     private BufferedOutputStream bufferedFileOutputStream;
+
     MyRunnable(int id, AtomicInteger turn, int numberOfThreads, Cipher decryptCipher, CyclicBarrier cb, BufferedOutputStream bufferedFileOutputStream){
         this.id = id;
         this.socket = 1235 + id;
         this.turn = turn;
         this.NUMBER_OF_THREADS = numberOfThreads;
         this.decryptCipher = decryptCipher;
+        this.bufferedFileOutputStream = bufferedFileOutputStream;
         this.cb = cb;
         this.bufferedFileOutputStream = bufferedFileOutputStream;
     }
@@ -252,12 +254,11 @@ class MyRunnable implements Runnable{
             connectionSocket = welcomeSocket.accept();
             fromClient = new DataInputStream(connectionSocket.getInputStream());
             toClient = new DataOutputStream(connectionSocket.getOutputStream());
-            BufferedOutputStream bufferedFileOutputStream = null;
             while(!connectionSocket.isClosed()){
                 int packetType = fromClient.readInt();
                 if (packetType == 2) {
                     System.out.println("Closing connection...");
-                    if (bufferedFileOutputStream != null) bufferedFileOutputStream.close();
+                    if (this.bufferedFileOutputStream != null) this.bufferedFileOutputStream.close();
                     toClient.writeInt(3);
                     fromClient.close();
                     toClient.close();
@@ -271,12 +272,11 @@ class MyRunnable implements Runnable{
                 byte[] encryptedBlock = new byte[128];
                 fromClient.readFully(encryptedBlock);
                 System.out.println(id + ": encryptedBlock length: " + encryptedBlock.length);
-                byte[] decryptedBlock = decryptCipher.doFinal(encryptedBlock);
+                byte[] decryptedBlock = this.decryptCipher.doFinal(encryptedBlock);
                 if (numBytes > 0){
-                    while (turn.get() != id){
-                    }
-                    bufferedFileOutputStream.write(decryptedBlock, 0, numBytes);
-                    bufferedFileOutputStream.flush();
+                    while (turn.get() != id){}
+                    this.bufferedFileOutputStream.write(decryptedBlock, 0, numBytes);
+                    this.bufferedFileOutputStream.flush();
                     turn.set((id + 1)%NUMBER_OF_THREADS);
                 }
             }

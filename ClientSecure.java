@@ -25,11 +25,11 @@ import javax.crypto.spec.SecretKeySpec;
 
 
 public class ClientSecure {
-    static Cipher rsaEncryptCipher;
-    static Cipher rsaDecryptCipher;
-    static Cipher decryptCipher;
-    static Cipher encryptCipher;
-    static Key aesSymmetricKey;
+    static Cipher rsaEncryptCipher = null;
+    static Cipher rsaDecryptCipher = null;
+    static Cipher decryptCipher = null;
+    static Cipher encryptCipher = null;
+    static Key aesSymmetricKey = null;
     static final int NUM_THREADS = 6;
 
     public static void main(String[] args) {
@@ -45,7 +45,7 @@ public class ClientSecure {
             ioEx.printStackTrace();
         }
 
-        PublicKey serverPublicKey;
+        PublicKey serverPublicKey = null;
 
         // int numBytes = 0;
 
@@ -168,15 +168,26 @@ public class ClientSecure {
                 bufferedFileInputStream = new BufferedInputStream(fileInputStream);
                 toServer.writeInt(1);
 
+                toServer.writeInt(1);
                 int threadsReady = fromServer.readInt();
 
                 if(threadsReady == 4) {
                     FileSendThread[] threads = new FileSendThread[NUM_THREADS];
 
                     for(int i = 0; i < NUM_THREADS; i ++) {
+                        Cipher threadEncryptCipher = initialiseCipher("RSA-E",serverPublicKey);
+
+                        if (protocol.equals("AES")) {
+                            //Initialising AES Cipher
+                            threadEncryptCipher = initialiseCipher("AES-E", aesSymmetricKey);
+                        }
+                        // else if (protocol.equals("RSA")){
+                        //     threadEncryptCipher = initialiseCipher("RSA-E",serverPublicKey);
+                        // }
+
                         Socket threadClient = new Socket(server, 1235 + i);
                         DataOutputStream threadServer = new DataOutputStream(threadClient.getOutputStream());
-                        FileSendThread t1 = new FileSendThread(threadServer, i, fileData);
+                        FileSendThread t1 = new FileSendThread(threadServer, threadEncryptCipher, i, fileData);
                         t1.start();
                         threads[i] = t1;
                     }
@@ -287,11 +298,13 @@ public class ClientSecure {
 
 class FileSendThread extends Thread {
     private DataOutputStream toServer;
+    private Cipher encryptCipher;
     private byte[] fileData;
     private int threadNum;
 
-    public FileSendThread(DataOutputStream toServer, int threadNum, byte[] fileData) throws Exception {
+    public FileSendThread(DataOutputStream toServer, Cipher encryptCipher, int threadNum, byte[] fileData) throws Exception {
         this.toServer = toServer;
+        this.encryptCipher = encryptCipher;
         this.fileData = fileData;
         this.threadNum = threadNum;
     }
@@ -299,11 +312,8 @@ class FileSendThread extends Thread {
     public void run() {
         try {
             byte [] fromFileBuffer = new byte[117];
-            System.out.println(this.fileData.length);
-            System.out.println(this.fileData.length/fromFileBuffer.length);
             // Thread i computes for i, i + NUM_THREADS, ...
             for(int j = this.threadNum; j < this.fileData.length/fromFileBuffer.length + 1; j += ClientSecure.NUM_THREADS) {
-                System.out.println(j);
                 int numBytes = 0;
                 // Encrypt data in blocks of 117
                 for(int k = 0; k < fromFileBuffer.length; k ++) {
@@ -313,7 +323,8 @@ class FileSendThread extends Thread {
                         fromFileBuffer[k] = this.fileData[j * fromFileBuffer.length + k];
                     }
                 }
-                byte[] encryptedFile = ClientSecure.encryptCipher.doFinal(fromFileBuffer);
+
+                byte[] encryptedFile = this.encryptCipher.doFinal(fromFileBuffer);
 
                 // System.out.println(numBytes);
                 toServer.writeInt(1);
