@@ -1,0 +1,6 @@
+Convolutional networks(LeCun, 1989), also known as convolutional neural
+networks, or CNNs, are a specialized kind of neural network for processing data
+that has a known grid-like topology. Examples include time-series data, which can
+be thought of as a 1-D grid taking samples at regular time intervals, and image data,
+which can be thought of as a 2-D grid of pixels. Convolutional networks have been
+tremendously successful in practical applications. The name “con

@@ -241,7 +241,6 @@ class MyRunnable implements Runnable{
         this.decryptCipher = decryptCipher;
         this.bufferedFileOutputStream = bufferedFileOutputStream;
         this.cb = cb;
-        this.bufferedFileOutputStream = bufferedFileOutputStream;
     }
     public void run(){
         ServerSocket welcomeSocket = null;
@@ -275,9 +274,11 @@ class MyRunnable implements Runnable{
                 byte[] decryptedBlock = this.decryptCipher.doFinal(encryptedBlock);
                 if (numBytes > 0){
                     while (turn.get() != id){}
-                    this.bufferedFileOutputStream.write(decryptedBlock, 0, numBytes);
-                    this.bufferedFileOutputStream.flush();
-                    turn.set((id + 1)%NUMBER_OF_THREADS);
+                    synchronized(bufferedFileOutputStream) {
+                        this.bufferedFileOutputStream.write(decryptedBlock, 0, numBytes);
+                        this.bufferedFileOutputStream.flush();
+                        turn.set((id + 1)%NUMBER_OF_THREADS);
+                    }
                 }
             }
         } catch (Exception e) {
