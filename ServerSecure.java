@@ -251,6 +251,7 @@ class MyRunnable implements Runnable{
                 if (numBytes > 0){
                     while (turn.get() != id){}
                     bufferedFileOutputStream.write(decryptedBlock, 0, numBytes);
+                    bufferedFileOutputStream.flush();
                     turn.set((id + 1)%NUMBER_OF_THREADS);
                 }
             }
