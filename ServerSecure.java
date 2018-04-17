@@ -140,7 +140,7 @@ public class ServerSecure {
                         AtomicInteger ai = new AtomicInteger();
                         CyclicBarrier cb = new CyclicBarrier(NUMBER_OF_THREADS);
                         for (int i = 0; i < NUMBER_OF_THREADS; i++){
-                            MyRunnable mr = new MyRunnable(i,ai,NUMBER_OF_THREADS,decryptCipher,cb);
+                            MyRunnable mr = new MyRunnable(i,ai,NUMBER_OF_THREADS,decryptCipher,bufferedFileOutputStream,cb);
                             multithread[i] = new Thread(mr);
                             multithread[i].start();
                         }
@@ -230,12 +230,14 @@ class MyRunnable implements Runnable{
     private AtomicInteger turn;
     private Cipher decryptCipher;
     private CyclicBarrier cb;
-    MyRunnable(int id, AtomicInteger turn, int numberOfThreads, Cipher decryptCipher, CyclicBarrier cb){
+    private BufferedOutputStream bufferedFileOutputStream;
+    MyRunnable(int id, AtomicInteger turn, int numberOfThreads, Cipher decryptCipher, BufferedOutputStream bufferedFileOutputStream, CyclicBarrier cb){
         this.id = id;
         this.socket = 1235 + id;
         this.turn = turn;
         this.NUMBER_OF_THREADS = numberOfThreads;
         this.decryptCipher = decryptCipher;
+        this.bufferedFileOutputStream = bufferedFileOutputStream;
         this.cb = cb;
     }
     public void run(){
@@ -249,12 +251,11 @@ class MyRunnable implements Runnable{
             connectionSocket = welcomeSocket.accept();
             fromClient = new DataInputStream(connectionSocket.getInputStream());
             toClient = new DataOutputStream(connectionSocket.getOutputStream());
-            BufferedOutputStream bufferedFileOutputStream = null;
             while(!connectionSocket.isClosed()){
                 int packetType = fromClient.readInt();
                 if (packetType == 2) {
                     System.out.println("Closing connection...");
-                    if (bufferedFileOutputStream != null) bufferedFileOutputStream.close();
+                    if (this.bufferedFileOutputStream != null) this.bufferedFileOutputStream.close();
                     toClient.writeInt(3);
                     fromClient.close();
                     toClient.close();
@@ -264,12 +265,11 @@ class MyRunnable implements Runnable{
                 }
                 int numBytes = fromClient.readInt();
                 byte[] encryptedBlock = new byte[128];
-                fromClient.readFully(encryptedBlock);
-                byte[] decryptedBlock = decryptCipher.doFinal(encryptedBlock);
+                byte[] decryptedBlock = this.decryptCipher.doFinal(encryptedBlock);
                 if (numBytes > 0){
                     while (turn.get() != id){}
-                    bufferedFileOutputStream.write(decryptedBlock, 0, numBytes);
-                    bufferedFileOutputStream.flush();
+                    this.bufferedFileOutputStream.write(decryptedBlock, 0, numBytes);
+                    this.bufferedFileOutputStream.flush();
                     turn.set((id + 1)%NUMBER_OF_THREADS);
                 }
             }
