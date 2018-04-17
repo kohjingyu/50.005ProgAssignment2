@@ -23,6 +23,7 @@ import java.security.Key;
 import java.security.KeyFactory;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.CyclicBarrier;
 
 public class ServerSecure {
     static SecretKey aesSymmetricKey;
@@ -135,16 +136,19 @@ public class ServerSecure {
                     } else if (packetType == 1) {
                         // System.out.println("Receiving file...");
 
-                        Thread[] multithread = new Thread[NUMBER_OF_THREADS];
+                        Thread[] multithread = new Thread[NUMBER_OF_THREADS + 1];
                         AtomicInteger ai = new AtomicInteger();
+                        CyclicBarrier cb = new CyclicBarrier(NUMBER_OF_THREADS);
                         for (int i = 0; i < NUMBER_OF_THREADS; i++){
-                            MyRunnable mr = new MyRunnable(i,ai,NUMBER_OF_THREADS,decryptCipher);
+                            MyRunnable mr = new MyRunnable(i,ai,NUMBER_OF_THREADS,decryptCipher,cb);
                             multithread[i] = new Thread(mr);
                             multithread[i].start();
                         }
-
+                        cb.await();
+                        toClient.writeInt(4);
                         for (int i = 0; i < NUMBER_OF_THREADS; i++){
                             multithread[i].join();
+                            System.out.println();
                         }
                     }
 
@@ -225,12 +229,14 @@ class MyRunnable implements Runnable{
     private final int NUMBER_OF_THREADS;
     private AtomicInteger turn;
     private Cipher decryptCipher;
-    MyRunnable(int id, AtomicInteger turn, int numberOfThreads, Cipher decryptCipher){
+    private CyclicBarrier cb;
+    MyRunnable(int id, AtomicInteger turn, int numberOfThreads, Cipher decryptCipher, CyclicBarrier cb){
         this.id = id;
         this.socket = 1235 + id;
         this.turn = turn;
         this.NUMBER_OF_THREADS = numberOfThreads;
         this.decryptCipher = decryptCipher;
+        this.cb = cb;
     }
     public void run(){
         ServerSocket welcomeSocket = null;
@@ -239,11 +245,23 @@ class MyRunnable implements Runnable{
         DataInputStream fromClient = null;
         try {
             welcomeSocket = new ServerSocket(socket);
+            cb.await();
             connectionSocket = welcomeSocket.accept();
             fromClient = new DataInputStream(connectionSocket.getInputStream());
             toClient = new DataOutputStream(connectionSocket.getOutputStream());
             BufferedOutputStream bufferedFileOutputStream = null;
             while(!connectionSocket.isClosed()){
+                int packetType = fromClient.readInt();
+                if (packetType == 2) {
+                    System.out.println("Closing connection...");
+                    if (bufferedFileOutputStream != null) bufferedFileOutputStream.close();
+                    toClient.writeInt(3);
+                    fromClient.close();
+                    toClient.close();
+                    connectionSocket.close();
+                    welcomeSocket.close();
+                    return;
+                }
                 int numBytes = fromClient.readInt();
                 byte[] encryptedBlock = new byte[128];
                 fromClient.readFully(encryptedBlock);

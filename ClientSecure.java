@@ -30,7 +30,7 @@ public class ClientSecure {
     static Cipher decryptCipher;
     static Cipher encryptCipher;
     static Key aesSymmetricKey;
-    static final int NUM_THREADS = 1;
+    static final int NUM_THREADS = 6;
 
     public static void main(String[] args) {
         BufferedReader stdIn = new BufferedReader(new InputStreamReader(System.in));
@@ -320,6 +320,7 @@ class FileSendThread extends Thread {
                 toServer.write(encryptedFile);
                 toServer.flush();
             }
+            toServer.writeInt(2);
         }
         catch(Exception ex) {
             ex.printStackTrace();
