@@ -72,7 +72,7 @@ The specification of the AP protocol is as follows:
 
 ### Example of Successful Output
 
-Upon a successful execution, the client will close its connection to the server and report the running time. The server will also stop accepting incoming submissions.
+Upon a successful execution, the client will close its connection to the server and report the running time. The server will patiently await the next connection.
 
 ![Successful Execution](images/success.png)
 
