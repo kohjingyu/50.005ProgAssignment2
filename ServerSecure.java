@@ -130,7 +130,7 @@ public class ServerSecure {
                         byte[] filename = decryptCipher.doFinal(encryptedfilename);
                         System.out.println("Filename is " + new String(filename));
                         fileOutputStream = new FileOutputStream("recv/"+new String(filename, 0, numBytes));
-                        bufferedFileOutputStream = new BufferedOutputStream(fileOutputStream);
+                        bufferedFileOutputStream = new BufferedOutputStream(fileOutputStream, 128 * NUMBER_OF_THREADS);
 
                     // If the packet is for transferring a chunk of the file
                     } else if (packetType == 1) {
@@ -273,11 +273,11 @@ class MyRunnable implements Runnable{
                 byte[] decryptedBlock = this.decryptCipher.doFinal(encryptedBlock);
                 if (numBytes > 0){
                     while (turn.get() != id){}
-                    synchronized(bufferedFileOutputStream) {
                         this.bufferedFileOutputStream.write(decryptedBlock, 0, numBytes);
-                        this.bufferedFileOutputStream.flush();
+                        if (id == 5) {
+                            this.bufferedFileOutputStream.flush();
+                        }
                         turn.set((id + 1)%NUMBER_OF_THREADS);
-                    }
                 }
             }
         } catch (Exception e) {
