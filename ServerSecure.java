@@ -22,12 +22,14 @@ import javax.crypto.KeyGenerator;
 import java.security.Key;
 import java.security.KeyFactory;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class ServerSecure {
     static SecretKey aesSymmetricKey;
     static String protocol;
     static Cipher rsaEncryptCipher;
     static Cipher decryptCipher;
+    static final int NUMBER_OF_THREADS = 6;
 
     public static void main(String[] args){
         ServerSocket welcomeSocket = null;
@@ -132,13 +134,18 @@ public class ServerSecure {
                     // If the packet is for transferring a chunk of the file
                     } else if (packetType == 1) {
                         // System.out.println("Receiving file...");
-                        int numBytes = fromClient.readInt();
-                        byte[] encryptedBlock = new byte[128];
-                        fromClient.readFully(encryptedBlock);
-                        byte[] decryptedBlock = decryptCipher.doFinal(encryptedBlock);
 
-                        if (numBytes > 0)
-                            bufferedFileOutputStream.write(decryptedBlock, 0, numBytes);
+                        Thread[] multithread = new Thread[NUMBER_OF_THREADS];
+                        AtomicInteger ai = new AtomicInteger();
+                        for (int i = 0; i < NUMBER_OF_THREADS; i++){
+                            MyRunnable mr = new MyRunnable(i,ai,NUMBER_OF_THREADS,decryptCipher);
+                            multithread[i] = new Thread(mr);
+                            multithread[i].start();
+                        }
+
+                        for (int i = 0; i < NUMBER_OF_THREADS; i++){
+                            multithread[i].join();
+                        }
                     }
 
                     if (packetType == 2) {
@@ -210,4 +217,47 @@ public class ServerSecure {
         return privateKey;
     }
 
+}
+
+class MyRunnable implements Runnable{
+    private int socket;
+    private int id;
+    private final int NUMBER_OF_THREADS;
+    private AtomicInteger turn;
+    private Cipher decryptCipher;
+    MyRunnable(int id, AtomicInteger turn, int numberOfThreads, Cipher decryptCipher){
+        this.id = id;
+        this.socket = 1235 + id;
+        this.turn = turn;
+        this.NUMBER_OF_THREADS = numberOfThreads;
+        this.decryptCipher = decryptCipher;
+    }
+    public void run(){
+        ServerSocket welcomeSocket = null;
+        Socket connectionSocket = null;
+        DataOutputStream toClient = null;
+        DataInputStream fromClient = null;
+        try {
+            welcomeSocket = new ServerSocket(socket);
+            connectionSocket = welcomeSocket.accept();
+            fromClient = new DataInputStream(connectionSocket.getInputStream());
+            toClient = new DataOutputStream(connectionSocket.getOutputStream());
+            BufferedOutputStream bufferedFileOutputStream = null;
+            while(!connectionSocket.isClosed()){
+                int numBytes = fromClient.readInt();
+                byte[] encryptedBlock = new byte[128];
+                fromClient.readFully(encryptedBlock);
+                byte[] decryptedBlock = decryptCipher.doFinal(encryptedBlock);
+                if (numBytes > 0){
+                    while (turn.get() != id){}
+                    bufferedFileOutputStream.write(decryptedBlock, 0, numBytes);
+                    bufferedFileOutputStream.flush();
+                    turn.set((id + 1)%NUMBER_OF_THREADS);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+    }
 }

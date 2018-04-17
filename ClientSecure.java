@@ -213,8 +213,8 @@ public class ClientSecure {
 
             try {
                 System.out.println("Some error occurred. Bye!");
-        toServer.writeInt(2);
-        toServer.flush();
+                toServer.writeInt(2);
+                toServer.flush();
             }
             catch(IOException ex) {
                 ex.printStackTrace();
