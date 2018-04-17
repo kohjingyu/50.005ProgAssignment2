@@ -30,7 +30,7 @@ public class ClientSecure {
     static Cipher decryptCipher = null;
     static Cipher encryptCipher = null;
     static Key aesSymmetricKey = null;
-    static final int NUM_THREADS = 6;
+    static final int NUM_THREADS = 7;
 
     public static void main(String[] args) {
         BufferedReader stdIn = new BufferedReader(new InputStreamReader(System.in));

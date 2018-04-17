@@ -30,7 +30,7 @@ public class ServerSecure {
     static String protocol;
     static Cipher rsaEncryptCipher;
     static Cipher decryptCipher;
-    static final int NUMBER_OF_THREADS = 6;
+    static final int NUMBER_OF_THREADS = 7;
 
     public static void main(String[] args){
         ServerSocket welcomeSocket = null;
@@ -264,12 +264,12 @@ class MyRunnable implements Runnable{
                     welcomeSocket.close();
                     return;
                 }
-                System.out.println(id + ": Waiting for file from client");
+                // System.out.println(id + ": Waiting for file from client");
                 int numBytes = fromClient.readInt();
-                System.out.println("" + id + ": " + numBytes);
+                // System.out.println("" + id + ": " + numBytes);
                 byte[] encryptedBlock = new byte[128];
                 fromClient.readFully(encryptedBlock);
-                System.out.println(id + ": encryptedBlock length: " + encryptedBlock.length);
+                // System.out.println(id + ": encryptedBlock length: " + encryptedBlock.length);
                 byte[] decryptedBlock = this.decryptCipher.doFinal(encryptedBlock);
                 if (numBytes > 0){
                     while (turn.get() != id){}
