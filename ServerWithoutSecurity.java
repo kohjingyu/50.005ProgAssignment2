@@ -65,7 +65,7 @@ public class ServerWithoutSecurity {
                     // Read nonce
                     int nonceSize = fromClient.readInt();
                     byte[] nonce = new byte[nonceSize];
-                    fromClient.read(nonce);
+                    fromClient.readFully(nonce);
                     System.out.println("Received nonce from client.");
 
                     try {
@@ -122,7 +122,7 @@ public class ServerWithoutSecurity {
                             encryptedfilename = new byte[decryptCipher.getBlockSize()];
                             System.out.println("Block size: " + decryptCipher.getBlockSize());
                         }
-                        fromClient.read(encryptedfilename);
+                        fromClient.readFully(encryptedfilename);
                         System.out.println("number of Bytes expected: " + numBytes);
                         byte[] filename = decryptCipher.doFinal(encryptedfilename);
                         System.out.println("Filename is " + new String(filename));
@@ -134,7 +134,7 @@ public class ServerWithoutSecurity {
                         // System.out.println("Receiving file...");
                         int numBytes = fromClient.readInt();
                         byte[] encryptedBlock = new byte[128];
-                        fromClient.read(encryptedBlock);
+                        fromClient.readFully(encryptedBlock);
                         byte[] decryptedBlock = decryptCipher.doFinal(encryptedBlock);
 
                         if (numBytes > 0)
