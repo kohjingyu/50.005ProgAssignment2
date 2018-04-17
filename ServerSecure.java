@@ -136,9 +136,9 @@ public class ServerSecure {
                     } else if (packetType == 1) {
                         // System.out.println("Receiving file...");
 
-                        Thread[] multithread = new Thread[NUMBER_OF_THREADS + 1];
+                        Thread[] multithread = new Thread[NUMBER_OF_THREADS];
                         AtomicInteger ai = new AtomicInteger();
-                        CyclicBarrier cb = new CyclicBarrier(NUMBER_OF_THREADS);
+                        CyclicBarrier cb = new CyclicBarrier(NUMBER_OF_THREADS + 1);
                         for (int i = 0; i < NUMBER_OF_THREADS; i++){
                             decryptCipher = initialiseCipher("RSA-D");
                             MyRunnable mr = new MyRunnable(i,ai,NUMBER_OF_THREADS,decryptCipher,cb, bufferedFileOutputStream);
@@ -257,7 +257,6 @@ class MyRunnable implements Runnable{
                 int packetType = fromClient.readInt();
                 if (packetType == 2) {
                     System.out.println("Closing connection...");
-                    if (this.bufferedFileOutputStream != null) this.bufferedFileOutputStream.close();
                     toClient.writeInt(3);
                     fromClient.close();
                     toClient.close();
