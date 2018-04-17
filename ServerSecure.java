@@ -28,6 +28,7 @@ public class ServerSecure {
     static String protocol;
     static Cipher rsaEncryptCipher;
     static Cipher decryptCipher;
+    static final int NUMBER_OF_THREADS = 6;
 
     public static void main(String[] args){
         ServerSocket welcomeSocket = null;
@@ -132,13 +133,17 @@ public class ServerSecure {
                     // If the packet is for transferring a chunk of the file
                     } else if (packetType == 1) {
                         // System.out.println("Receiving file...");
-                        int numBytes = fromClient.readInt();
-                        byte[] encryptedBlock = new byte[128];
-                        fromClient.readFully(encryptedBlock);
-                        byte[] decryptedBlock = decryptCipher.doFinal(encryptedBlock);
 
-                        if (numBytes > 0)
-                            bufferedFileOutputStream.write(decryptedBlock, 0, numBytes);
+                        Thread[] multithread;
+                        AtomicInteger ai = new AtomicInteger()
+                        for (int i = 0; i < numberOfThreads; i++){
+                            multithread[i] = new Thread(new MyRunnable(i,ai));
+                            multithread[i].start();
+                        }
+
+                        for (int i = 0; i < numberOfThreads; i++){
+                            multithread[i].join();
+                        }
                     }
 
                     if (packetType == 2) {
@@ -160,6 +165,44 @@ public class ServerSecure {
             }
         }
 
+    }
+
+    private class MyRunnable {
+        private int socket;
+        private int id;
+        private AtomicInteger turn;
+        MyRunnable(int id, AtomicInteger turn){
+            this.id = id;
+            this.socket = 1235 + id;
+            this.turn = turn;
+        }
+        public void run(){
+            ServerSocket welcomeSocket = null;
+            Socket connectionSocket = null;
+            DataOutputStream toClient = null;
+            DataInputStream fromClient = null;
+            try {
+                welcomeSocket = new ServerSocket(socket);
+                connectionSocket = welcomeSocket.accept();
+                fromClient = new DataInputStream(connectionSocket.getInputStream());
+                toClient = new DataOutputStream(connectionSocket.getOutputStream());
+                BufferedOutputStream bufferedFileOutputStream = null;
+                while(!connectionSocket.isClosed()){
+                    int numBytes = fromClient.readInt();
+                    byte[] encryptedBlock = new byte[128];
+                    fromClient.readFully(encryptedBlock);
+                    byte[] decryptedBlock = decryptCipher.doFinal(encryptedBlock);
+                    if (numBytes > 0){
+                        while (turn.get() != id){}
+                        bufferedFileOutputStream.write(decryptedBlock, 0, numBytes);
+                        turn.set((id + 1)%NUMBER_OF_THREADS);
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+        }
     }
 
     public static byte[] encryptString(String s) throws Exception {
