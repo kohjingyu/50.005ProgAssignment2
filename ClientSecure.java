@@ -157,7 +157,7 @@ public class ClientSecure {
                 toServer.write(fileNameBytes);
                 toServer.flush();
 
-                // TODO: Split file and send
+                // Split file and send
                 System.out.println("Sending file...");
                 // Open the file
                 File file = new File(filename);
@@ -167,36 +167,40 @@ public class ClientSecure {
 
                 bufferedFileInputStream = new BufferedInputStream(fileInputStream);
 
-                FileSendThread[] threads = new FileSendThread[NUM_THREADS];
+                int threadsReady = fromServer.readInt();
 
-                for(int i = 0; i < NUM_THREADS; i ++) {
-                    Socket threadClient = new Socket(server, 1235 + i);
-                    DataOutputStream threadServer = new DataOutputStream(threadClient.getOutputStream());
-                    FileSendThread t1 = new FileSendThread(threadServer, i, fileData);
-                    t1.start();
-                    threads[i] = t1;
+                if(threadsReady == 4) {
+                    FileSendThread[] threads = new FileSendThread[NUM_THREADS];
+
+                    for(int i = 0; i < NUM_THREADS; i ++) {
+                        Socket threadClient = new Socket(server, 1235 + i);
+                        DataOutputStream threadServer = new DataOutputStream(threadClient.getOutputStream());
+                        FileSendThread t1 = new FileSendThread(threadServer, i, fileData);
+                        t1.start();
+                        threads[i] = t1;
+                    }
+
+                    for(FileSendThread thread : threads) {
+                        thread.join();
+                    }
+
+                    // // Send the file
+                    // for (boolean fileEnded = false; !fileEnded;) {
+                    // // Reading from the inputstream into the fromFileBuffer
+                    //     numBytes = bufferedFileInputStream.read(fromFileBuffer);
+                    //     fileEnded = numBytes < fromFileBuffer.length;
+
+                    //     byte[] encryptedFile = encryptCipher.doFinal(fromFileBuffer);
+
+                    //     toServer.writeInt(1);
+                    //     toServer.writeInt(numBytes);
+                    //     toServer.write(encryptedFile);
+                    //     toServer.flush();
+                    // }
+
+                    bufferedFileInputStream.close();
+                    fileInputStream.close();
                 }
-
-                for(FileSendThread thread : threads) {
-                    thread.join();
-                }
-
-                // // Send the file
-                // for (boolean fileEnded = false; !fileEnded;) {
-                // // Reading from the inputstream into the fromFileBuffer
-                //     numBytes = bufferedFileInputStream.read(fromFileBuffer);
-                //     fileEnded = numBytes < fromFileBuffer.length;
-
-                //     byte[] encryptedFile = encryptCipher.doFinal(fromFileBuffer);
-
-                //     toServer.writeInt(1);
-                //     toServer.writeInt(numBytes);
-                //     toServer.write(encryptedFile);
-                //     toServer.flush();
-                // }
-
-                bufferedFileInputStream.close();
-                fileInputStream.close();
             }
 
             System.out.println("Closing connection, waiting for Server...");
