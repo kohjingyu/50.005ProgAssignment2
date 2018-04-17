@@ -23,7 +23,7 @@ import java.security.Key;
 import java.security.KeyFactory;
 import java.security.spec.PKCS8EncodedKeySpec;
 
-public class ServerWithoutSecurity {
+public class ServerSecure {
     static SecretKey aesSymmetricKey;
     static String protocol;
     static Cipher rsaEncryptCipher;

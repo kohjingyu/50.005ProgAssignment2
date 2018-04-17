@@ -1,0 +1,15 @@
+
+test2.txt 	- 12 B text file
+	RSA: 760.80018ms			AES: 484.354586ms
+test3.txt 	- 2.4 KB test file
+	RSA: 14490.352522ms			AES: 539.214628ms
+rr.txt 		- 2.0MB test file
+	RSA: 18074.681871ms			AES: 732.11026ms
+
+test1.jpeg	- 7.1K image file
+	RSA: 413.021158ms			AES: 327.995402ms
+test2.jpeg	- 395K image file
+	RSA: 3870.415026ms			AES: 413.074943ms
+
+big1.pdf - 88MB pdf file
+	RSA: 606813.020922ms		AES: 4998.455772ms
