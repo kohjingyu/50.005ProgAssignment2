@@ -207,9 +207,9 @@ public class ServerSecure {
                 return cipher;
             case "AES-D":
                 // Only generate the key if it doesn't exist
-                if(aesSymmetricKey == null) {
-                    aesSymmetricKey = KeyGenerator.getInstance("AES").generateKey();
-                }
+                // if(aesSymmetricKey == null) {
+                //     aesSymmetricKey = KeyGenerator.getInstance("AES").generateKey();
+                // }
                 cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
                 cipher.init(Cipher.DECRYPT_MODE, aesSymmetricKey);
                 return cipher;
