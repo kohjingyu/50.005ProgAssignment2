@@ -92,12 +92,18 @@ public class ServerSecure {
                             decryptCipher = initialiseCipher("RSA-D");
 
                         } else if (protocol.equals("AES")){
+                            decryptCipher = initialiseCipher("RSA-D");
                             System.out.println("Using AES protocol");
+                            int aesSymmetricKeySize = fromClient.readInt();
+                            byte[] encryptedSymmetricKey = new byte[decryptCipher.getBlockSize];
+                            fromClient.readFully(encryptedSymmetricKey);
+                            aesSymmetricKey = decryptCipher.doFinal(encryptedSymmetricKey);
                             decryptCipher = initialiseCipher("AES-D");
-                            System.out.println("Encrypting session key...");
-                            byte[] encryptedSymmetricKey = encryptBytes(aesSymmetricKey.getEncoded());
-                            toClient.writeInt(encryptedSymmetricKey.length);
-                            toClient.write(encryptedSymmetricKey);
+                            // decryptCipher = initialiseCipher("AES-D");
+                            // System.out.println("Encrypting session key...");
+                            // byte[] encryptedSymmetricKey = encryptBytes(aesSymmetricKey.getEncoded());
+                            // toClient.writeInt(encryptedSymmetricKey.length);
+                            // toClient.write(encryptedSymmetricKey);
                         }
                     }
                     catch(EOFException ex) {
@@ -143,7 +149,7 @@ public class ServerSecure {
                             if (protocol.equals("AES")) {
                                 threadDecryptCipher = initialiseCipher("AES-D");
                             }
-                            
+
                             MyRunnable mr = new MyRunnable(i,ai,NUMBER_OF_THREADS,threadDecryptCipher,cb, bufferedFileOutputStream);
                             multithread[i] = new Thread(mr);
                             multithread[i].start();

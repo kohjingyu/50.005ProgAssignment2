@@ -239,7 +239,6 @@ public class ClientSecure {
 
     public static PublicKey getServerPublicKey(X509Certificate serverCert) throws Exception {
         System.out.println("Checking server certificate...");
-
         // Load CA's public key
         InputStream CAFis = new FileInputStream("jyCert/CA.crt");
         CertificateFactory CACf = CertificateFactory.getInstance("X.509");
