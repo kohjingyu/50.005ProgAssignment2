@@ -175,9 +175,8 @@ public class ClientSecure {
 
                     for(int i = 0; i < ServerSecure.NUMBER_OF_THREADS; i ++) {
                         Cipher threadEncryptCipher = initialiseCipher("RSA-E",serverPublicKey);
-
                         if (protocol.equals("AES")) {
-                            //Initialising AES Cipher
+                            //Initialising RSA Cipher
                             threadEncryptCipher = initialiseCipher("AES-E", aesSymmetricKey);
                         }
 
@@ -211,7 +210,7 @@ public class ClientSecure {
                 }
             }
 
-            System.out.println("Closing connection, waiting for Server...");
+            System.out.println("Closing connection, waiting for server...");
             toServer.writeInt(2);
             toServer.flush();
             int signal = fromServer.readInt();

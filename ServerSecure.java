@@ -30,7 +30,7 @@ public class ServerSecure {
     static String protocol;
     static Cipher rsaEncryptCipher;
     static Cipher decryptCipher;
-    static final int NUMBER_OF_THREADS = 1;
+    static final int NUMBER_OF_THREADS = 7;
 
     public static void main(String[] args){
         ServerSocket welcomeSocket = null;
@@ -139,9 +139,9 @@ public class ServerSecure {
                         AtomicInteger ai = new AtomicInteger();
                         CyclicBarrier cb = new CyclicBarrier(NUMBER_OF_THREADS + 1);
                         for (int i = 0; i < NUMBER_OF_THREADS; i++){
-                            Cipher threadDecryptCipher = initialiseCipher("AES-D");
-                            if (protocol.equals("RSA")) {
-                                threadDecryptCipher = initialiseCipher("RSA-D");
+                            Cipher threadDecryptCipher = initialiseCipher("RSA-D");
+                            if (protocol.equals("AES")) {
+                                threadDecryptCipher = initialiseCipher("AES-D");
                             }
                             
                             MyRunnable mr = new MyRunnable(i,ai,NUMBER_OF_THREADS,threadDecryptCipher,cb, bufferedFileOutputStream);
@@ -206,7 +206,10 @@ public class ServerSecure {
                 cipher.init(Cipher.DECRYPT_MODE, privateKey);
                 return cipher;
             case "AES-D":
-                aesSymmetricKey = KeyGenerator.getInstance("AES").generateKey();
+                // Only generate the key if it doesn't exist
+                if(aesSymmetricKey == null) {
+                    aesSymmetricKey = KeyGenerator.getInstance("AES").generateKey();
+                }
                 cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
                 cipher.init(Cipher.DECRYPT_MODE, aesSymmetricKey);
                 return cipher;
@@ -274,11 +277,12 @@ class MyRunnable implements Runnable{
                 byte[] decryptedBlock = this.decryptCipher.doFinal(encryptedBlock);
                 if (numBytes > 0){
                     while (turn.get() != id){}
-                        this.bufferedFileOutputStream.write(decryptedBlock, 0, numBytes);
-                        if (id == 5) {
-                            this.bufferedFileOutputStream.flush();
-                        }
-                        turn.set((id + 1)%NUMBER_OF_THREADS);
+
+                    this.bufferedFileOutputStream.write(decryptedBlock, 0, numBytes);
+                    if (id == NUMBER_OF_THREADS - 1) {
+                        this.bufferedFileOutputStream.flush();
+                    }
+                    turn.set((id + 1)%NUMBER_OF_THREADS);
                 }
             }
         } catch (Exception e) {

@@ -84,6 +84,4 @@ It is clear that the AES encryption standard is much quicker than using RSA for 
 
 ## Conclusion
 
-## Acknowledgements
-
 
