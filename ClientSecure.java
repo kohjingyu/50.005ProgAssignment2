@@ -64,10 +64,10 @@ public class ClientSecure {
 
             // Connect to server and get the input and output streams
             // (laptop)
-            // String server = "10.12.182.147";
+            String server = "10.12.182.147";
             // (desktop)
             // String server = "10.12.150.191";
-            String server = "localhost";
+            // String server = "localhost";
             clientSocket = new Socket(server, 1234);
             toServer = new DataOutputStream(clientSocket.getOutputStream());
             fromServer = new DataInputStream(clientSocket.getInputStream());
@@ -131,12 +131,16 @@ public class ClientSecure {
             if(identityVerified) {
                 if (protocol.equals("AES")) {
                     //Initialising AES Cipher
-                    System.out.println("Receiving session key...");
-                    int encryptedSessionKeyLength = fromServer.readInt();
-                    byte[] encryptedSessionKey = new byte[encryptedSessionKeyLength];
-                    fromServer.readFully(encryptedSessionKey);
-                    byte[] decryptedSessionKey = rsaDecryptCipher.doFinal(encryptedSessionKey);
-                    aesSymmetricKey = new SecretKeySpec(decryptedSessionKey,"AES");
+                    aesSymmetricKey = KeyGenerator.getInstance("AES").generateKey();
+
+                    System.out.println("Sending session key...");
+                    byte[] encryptedSymmetricKey = rsaEncryptCipher.doFinal(aesSymmetricKey.getEncoded());
+                    toServer.writeInt(encryptedSymmetricKey.length);
+                    toServer.write(encryptedSymmetricKey);
+                    // int encryptedSessionKeyLength = fromServer.readInt();
+                    // fromServer.readFully(encryptedSessionKey);
+                    // byte[] decryptedSessionKey = rsaDecryptCipher.doFinal(encryptedSessionKey);
+                    // aesSymmetricKey = new SecretKeySpec(decryptedSessionKey,"AES");
                     encryptCipher = initialiseCipher("AES-E", aesSymmetricKey);
                 } else if (protocol.equals("RSA")){
                     encryptCipher = rsaEncryptCipher;
