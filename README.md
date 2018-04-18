@@ -14,6 +14,12 @@ This application implements a secure file upload application from a client to an
 
 This program is written in Java and was tested in Java 8.
 
+## Design Challenge
+
+Additionally, our client opens multiple sockets for sending and receiving data. The client will open a number of threads specified by the server (e.g., 7). Each thread takes up a new port number, and the server accepts the corresponding threads. The file is then transferred in parallel over all the threads available.
+
+Similarly, the server receives the corresponding part of the file specified by a port, and combines it in the same way that it was split to ensure a lossless file output.
+
 ## Prerequisites
 
 Java is required to build the program.
