@@ -64,11 +64,7 @@ public class ClientSecure {
             System.out.println("Establishing connection to server...");
 
             // Connect to server and get the input and output streams
-            // (laptop)
-            String server = "10.12.182.147";
-            // (desktop)
-            // String server = "10.12.150.191";
-            // String server = "localhost";
+            String server = "localhost";
             clientSocket = new Socket(server, 1234);
             toServer = new DataOutputStream(clientSocket.getOutputStream());
             fromServer = new DataInputStream(clientSocket.getInputStream());
