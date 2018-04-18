@@ -8,6 +8,7 @@ import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.File;
 import java.net.Socket;
 
 import java.util.Arrays;
@@ -24,11 +25,11 @@ import javax.crypto.spec.SecretKeySpec;
 
 
 public class ClientSecure {
-    static Cipher rsaEncryptCipher;
-    static Cipher rsaDecryptCipher;
-    static Cipher decryptCipher;
-    static Cipher encryptCipher;
-    static Key aesSymmetricKey;
+    static Cipher rsaEncryptCipher = null;
+    static Cipher rsaDecryptCipher = null;
+    static Cipher decryptCipher = null;
+    static Cipher encryptCipher = null;
+    static Key aesSymmetricKey = null;
 
     public static void main(String[] args) {
         BufferedReader stdIn = new BufferedReader(new InputStreamReader(System.in));
@@ -43,9 +44,9 @@ public class ClientSecure {
             ioEx.printStackTrace();
         }
 
-        PublicKey serverPublicKey;
+        PublicKey serverPublicKey = null;
 
-        int numBytes = 0;
+        // int numBytes = 0;
 
         Socket clientSocket = null;
 
@@ -63,17 +64,17 @@ public class ClientSecure {
 
             // Connect to server and get the input and output streams
             // (laptop)
-            String server = "10.12.182.147";
+            // String server = "10.12.182.147";
             // (desktop)
             // String server = "10.12.150.191";
-            // String server = "localhost";
+            String server = "localhost";
             clientSocket = new Socket(server, 1234);
             toServer = new DataOutputStream(clientSocket.getOutputStream());
             fromServer = new DataInputStream(clientSocket.getInputStream());
 
             // Tell server to receive nonce
             toServer.writeInt(1);
-            // Send nonce
+            // Send a 64 byte nonce
             int nonceSize = 64;
             SecureRandom random = new SecureRandom();
             byte nonce[] = new byte[nonceSize];
@@ -111,8 +112,6 @@ public class ClientSecure {
                 rsaDecryptCipher = initialiseCipher("RSA-D",serverPublicKey);
                 rsaEncryptCipher = initialiseCipher("RSA-E",serverPublicKey);
 
-
-
                 // Decrypt message from SecStore
 
                 byte[] decryptedNonce = rsaDecryptCipher.doFinal(encryptedMsg);
@@ -131,6 +130,7 @@ public class ClientSecure {
             // If check succeeded, send file
             if(identityVerified) {
                 if (protocol.equals("AES")) {
+                    //Initialising AES Cipher
                     System.out.println("Receiving session key...");
                     int encryptedSessionKeyLength = fromServer.readInt();
                     byte[] encryptedSessionKey = new byte[encryptedSessionKeyLength];
@@ -145,14 +145,10 @@ public class ClientSecure {
                 // EncodedKeySpec eks = new X509EncodedKeySpec(decryptedSessionKey);
                 // SecretKeySpec sks = new SecretKeySpec()
 
-                //Initialising AES Cipher
-
                 byte[] fileNameBytes = filename.getBytes();
                 int byteArrayLength = fileNameBytes.length;
                 System.out.println("Length of filename bytes is: " + byteArrayLength);
                 fileNameBytes = encryptCipher.doFinal(fileNameBytes);
-
-                System.out.println("Sending file...");
 
                 // Send the filename
                 toServer.writeInt(0);
@@ -160,37 +156,68 @@ public class ClientSecure {
                 toServer.write(fileNameBytes);
                 toServer.flush();
 
+                // Split file and send
+                System.out.println("Sending file...");
                 // Open the file
-                fileInputStream = new FileInputStream(filename);
+                File file = new File(filename);
+                fileInputStream = new FileInputStream(file);
+                byte[] fileData = new byte[(int)file.length()];
+                fileInputStream.read(fileData);
+
                 bufferedFileInputStream = new BufferedInputStream(fileInputStream);
+                toServer.writeInt(1);
 
-                byte [] fromFileBuffer = new byte[117];
+                // toServer.writeInt(1);
+                int threadsReady = fromServer.readInt();
 
+                if(threadsReady == 4) {
+                    FileSendThread[] threads = new FileSendThread[ServerSecure.NUMBER_OF_THREADS];
 
-                // Send the file
-                for (boolean fileEnded = false; !fileEnded;) {
-                // Reading from the inputstream into the fromFileBuffer
-                    numBytes = bufferedFileInputStream.read(fromFileBuffer);
-                    fileEnded = numBytes < fromFileBuffer.length;
+                    for(int i = 0; i < ServerSecure.NUMBER_OF_THREADS; i ++) {
+                        Cipher threadEncryptCipher = initialiseCipher("RSA-E",serverPublicKey);
+                        if (protocol.equals("AES")) {
+                            //Initialising RSA Cipher
+                            threadEncryptCipher = initialiseCipher("AES-E", aesSymmetricKey);
+                        }
 
-                    byte[] encryptedFile = encryptCipher.doFinal(fromFileBuffer);
+                        Socket threadClient = new Socket(server, 1235 + i);
+                        DataOutputStream threadServer = new DataOutputStream(threadClient.getOutputStream());
+                        FileSendThread t1 = new FileSendThread(threadServer, threadEncryptCipher, i, fileData);
+                        t1.start();
+                        threads[i] = t1;
+                    }
 
-                    toServer.writeInt(1);
-                    toServer.writeInt(numBytes);
-                    toServer.write(encryptedFile);
-                    toServer.flush();
+                    for(FileSendThread thread : threads) {
+                        thread.join();
+                    }
+
+                    // // Send the file
+                    // for (boolean fileEnded = false; !fileEnded;) {
+                    // // Reading from the inputstream into the fromFileBuffer
+                    //     numBytes = bufferedFileInputStream.read(fromFileBuffer);
+                    //     fileEnded = numBytes < fromFileBuffer.length;
+
+                    //     byte[] encryptedFile = encryptCipher.doFinal(fromFileBuffer);
+
+                    //     toServer.writeInt(1);
+                    //     toServer.writeInt(numBytes);
+                    //     toServer.write(encryptedFile);
+                    //     toServer.flush();
+                    // }
+
+                    bufferedFileInputStream.close();
+                    fileInputStream.close();
                 }
-
-                bufferedFileInputStream.close();
-                fileInputStream.close();
             }
 
-            System.out.println("Closing connection, waiting for Server...");
+            System.out.println("Closing connection, waiting for server...");
             toServer.writeInt(2);
             toServer.flush();
             int signal = fromServer.readInt();
-            if (signal == 3) {
+            System.out.println(signal);
 
+            if (signal == 3) {
+                // Signal that the server is closing the connection
             }
         } catch (Exception e) {
             // Not valid!
@@ -199,8 +226,8 @@ public class ClientSecure {
 
             try {
                 System.out.println("Some error occurred. Bye!");
-        toServer.writeInt(2);
-        toServer.flush();
+                toServer.writeInt(2);
+                toServer.flush();
             }
             catch(IOException ex) {
                 ex.printStackTrace();
@@ -262,6 +289,50 @@ public class ClientSecure {
                 return cipher;
             default:
                 throw new IllegalArgumentException();
+        }
+    }
+}
+
+class FileSendThread extends Thread {
+    private DataOutputStream toServer;
+    private Cipher encryptCipher;
+    private byte[] fileData;
+    private int threadNum;
+
+    public FileSendThread(DataOutputStream toServer, Cipher encryptCipher, int threadNum, byte[] fileData) throws Exception {
+        this.toServer = toServer;
+        this.encryptCipher = encryptCipher;
+        this.fileData = fileData;
+        this.threadNum = threadNum;
+    }
+
+    public void run() {
+        try {
+            byte [] fromFileBuffer = new byte[117];
+            // Thread i computes for i, i + ServerSecure.NUMBER_OF_THREADS, ...
+            for(int j = this.threadNum; j < this.fileData.length/fromFileBuffer.length + 1; j += ServerSecure.NUMBER_OF_THREADS) {
+                int numBytes = 0;
+                // Encrypt data in blocks of 117
+                for(int k = 0; k < fromFileBuffer.length; k ++) {
+                    // Don't exceed array bounds
+                    if(j * fromFileBuffer.length + k < this.fileData.length) {
+                        numBytes ++;
+                        fromFileBuffer[k] = this.fileData[j * fromFileBuffer.length + k];
+                    }
+                }
+
+                byte[] encryptedFile = this.encryptCipher.doFinal(fromFileBuffer);
+
+                // System.out.println(numBytes);
+                toServer.writeInt(1);
+                toServer.writeInt(numBytes);
+                toServer.write(encryptedFile);
+                toServer.flush();
+            }
+            toServer.writeInt(2);
+        }
+        catch(Exception ex) {
+            ex.printStackTrace();
         }
     }
 }

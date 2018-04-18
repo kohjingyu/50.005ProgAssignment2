@@ -22,12 +22,15 @@ import javax.crypto.KeyGenerator;
 import java.security.Key;
 import java.security.KeyFactory;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.CyclicBarrier;
 
 public class ServerSecure {
     static SecretKey aesSymmetricKey;
     static String protocol;
     static Cipher rsaEncryptCipher;
     static Cipher decryptCipher;
+    static final int NUMBER_OF_THREADS = 7;
 
     public static void main(String[] args){
         ServerSocket welcomeSocket = null;
@@ -127,25 +130,37 @@ public class ServerSecure {
                         byte[] filename = decryptCipher.doFinal(encryptedfilename);
                         System.out.println("Filename is " + new String(filename));
                         fileOutputStream = new FileOutputStream("recv/"+new String(filename, 0, numBytes));
-                        bufferedFileOutputStream = new BufferedOutputStream(fileOutputStream);
+                        bufferedFileOutputStream = new BufferedOutputStream(fileOutputStream, 128 * NUMBER_OF_THREADS);
 
                     // If the packet is for transferring a chunk of the file
                     } else if (packetType == 1) {
                         // System.out.println("Receiving file...");
-                        int numBytes = fromClient.readInt();
-                        byte[] encryptedBlock = new byte[128];
-                        fromClient.readFully(encryptedBlock);
-                        byte[] decryptedBlock = decryptCipher.doFinal(encryptedBlock);
-
-                        if (numBytes > 0)
-                            bufferedFileOutputStream.write(decryptedBlock, 0, numBytes);
+                        Thread[] multithread = new Thread[NUMBER_OF_THREADS];
+                        AtomicInteger ai = new AtomicInteger();
+                        CyclicBarrier cb = new CyclicBarrier(NUMBER_OF_THREADS + 1);
+                        for (int i = 0; i < NUMBER_OF_THREADS; i++){
+                            Cipher threadDecryptCipher = initialiseCipher("RSA-D");
+                            if (protocol.equals("AES")) {
+                                threadDecryptCipher = initialiseCipher("AES-D");
+                            }
+                            
+                            MyRunnable mr = new MyRunnable(i,ai,NUMBER_OF_THREADS,threadDecryptCipher,cb, bufferedFileOutputStream);
+                            multithread[i] = new Thread(mr);
+                            multithread[i].start();
+                        }
+                        cb.await();
+                        toClient.writeInt(4);
+                        for (int i = 0; i < NUMBER_OF_THREADS; i++){
+                            multithread[i].join();
+                        }
                     }
+                    else if (packetType == 2) {
+                        if (bufferedFileOutputStream != null) {
+                            System.out.println("Closing file...");
+                            bufferedFileOutputStream.close();
+                            fileOutputStream.close();
+                        }
 
-                    if (packetType == 2) {
-                        System.out.println("Closing connection...");
-
-                        if (bufferedFileOutputStream != null) bufferedFileOutputStream.close();
-                        if (bufferedFileOutputStream != null) fileOutputStream.close();
                         toClient.writeInt(3);
                         fromClient.close();
                         toClient.close();
@@ -191,7 +206,10 @@ public class ServerSecure {
                 cipher.init(Cipher.DECRYPT_MODE, privateKey);
                 return cipher;
             case "AES-D":
-                aesSymmetricKey = KeyGenerator.getInstance("AES").generateKey();
+                // Only generate the key if it doesn't exist
+                if(aesSymmetricKey == null) {
+                    aesSymmetricKey = KeyGenerator.getInstance("AES").generateKey();
+                }
                 cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
                 cipher.init(Cipher.DECRYPT_MODE, aesSymmetricKey);
                 return cipher;
@@ -210,4 +228,66 @@ public class ServerSecure {
         return privateKey;
     }
 
+}
+
+class MyRunnable implements Runnable{
+    private int socket;
+    private int id;
+    private final int NUMBER_OF_THREADS;
+    private AtomicInteger turn;
+    private Cipher decryptCipher;
+    private CyclicBarrier cb;
+    private BufferedOutputStream bufferedFileOutputStream;
+
+    MyRunnable(int id, AtomicInteger turn, int numberOfThreads, Cipher decryptCipher, CyclicBarrier cb, BufferedOutputStream bufferedFileOutputStream){
+        this.id = id;
+        this.socket = 1235 + id;
+        this.turn = turn;
+        this.NUMBER_OF_THREADS = numberOfThreads;
+        this.decryptCipher = decryptCipher;
+        this.bufferedFileOutputStream = bufferedFileOutputStream;
+        this.cb = cb;
+    }
+    public void run(){
+        ServerSocket welcomeSocket = null;
+        Socket connectionSocket = null;
+        DataOutputStream toClient = null;
+        DataInputStream fromClient = null;
+        try {
+            welcomeSocket = new ServerSocket(socket);
+            cb.await();
+            connectionSocket = welcomeSocket.accept();
+            fromClient = new DataInputStream(connectionSocket.getInputStream());
+            toClient = new DataOutputStream(connectionSocket.getOutputStream());
+            while(!connectionSocket.isClosed()){
+                int packetType = fromClient.readInt();
+                if (packetType == 2) {
+                    System.out.println("Closing connection...");
+                    toClient.writeInt(3);
+                    fromClient.close();
+                    toClient.close();
+                    connectionSocket.close();
+                    welcomeSocket.close();
+                    return;
+                }
+                // System.out.println(id + ": Waiting for file from client");
+                int numBytes = fromClient.readInt();
+                byte[] encryptedBlock = new byte[128];
+                fromClient.readFully(encryptedBlock);
+                byte[] decryptedBlock = this.decryptCipher.doFinal(encryptedBlock);
+                if (numBytes > 0){
+                    while (turn.get() != id){}
+
+                    this.bufferedFileOutputStream.write(decryptedBlock, 0, numBytes);
+                    if (id == NUMBER_OF_THREADS - 1) {
+                        this.bufferedFileOutputStream.flush();
+                    }
+                    turn.set((id + 1)%NUMBER_OF_THREADS);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+    }
 }
