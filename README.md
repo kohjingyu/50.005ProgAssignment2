@@ -56,25 +56,23 @@ Next, the user is asked for the file to be transferred. Enter the name of the fi
 
 ## Specifications
 
-### AP
+The specification of the protocols are as follows:
 
-The specification of the AP protocol is as follows:
+### AP
 
 ![AP Protocol Specification](images/AP_spec.png)
 
 ### CP-1
 
-![CP-1 Protocol Specification](images/CP1_spec.png)
+![CP-1 Protocol Specification](images/CP1_spec.JPG)
 
 ### CP-2
 
-![CP-2 Protocol Specification](images/CP2_spec.png)
+![CP-2 Protocol Specification](images/CP2_spec.JPG)
 
 ### Example of Successful Output
 
 Upon a successful execution, the client will close its connection to the server and report the running time. The server will patiently await the next connection.
-
-![Successful Execution](images/success.png)
 
 ## Results
 
