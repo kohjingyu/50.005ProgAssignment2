@@ -22,6 +22,7 @@ import java.security.SecureRandom;
 import javax.security.auth.x500.X500Principal;
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
+import javax.crypto.KeyGenerator;
 
 
 public class ClientSecure {
