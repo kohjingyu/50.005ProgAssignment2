@@ -30,7 +30,6 @@ public class ClientSecure {
     static Cipher decryptCipher = null;
     static Cipher encryptCipher = null;
     static Key aesSymmetricKey = null;
-    static final int NUM_THREADS = 7;
 
     public static void main(String[] args) {
         BufferedReader stdIn = new BufferedReader(new InputStreamReader(System.in));
@@ -75,7 +74,7 @@ public class ClientSecure {
 
             // Tell server to receive nonce
             toServer.writeInt(1);
-            // Send nonce
+            // Send a 64 byte nonce
             int nonceSize = 64;
             SecureRandom random = new SecureRandom();
             byte nonce[] = new byte[nonceSize];
@@ -168,22 +167,19 @@ public class ClientSecure {
                 bufferedFileInputStream = new BufferedInputStream(fileInputStream);
                 toServer.writeInt(1);
 
-                toServer.writeInt(1);
+                // toServer.writeInt(1);
                 int threadsReady = fromServer.readInt();
 
                 if(threadsReady == 4) {
-                    FileSendThread[] threads = new FileSendThread[NUM_THREADS];
+                    FileSendThread[] threads = new FileSendThread[ServerSecure.NUMBER_OF_THREADS];
 
-                    for(int i = 0; i < NUM_THREADS; i ++) {
+                    for(int i = 0; i < ServerSecure.NUMBER_OF_THREADS; i ++) {
                         Cipher threadEncryptCipher = initialiseCipher("RSA-E",serverPublicKey);
 
                         if (protocol.equals("AES")) {
                             //Initialising AES Cipher
                             threadEncryptCipher = initialiseCipher("AES-E", aesSymmetricKey);
                         }
-                        // else if (protocol.equals("RSA")){
-                        //     threadEncryptCipher = initialiseCipher("RSA-E",serverPublicKey);
-                        // }
 
                         Socket threadClient = new Socket(server, 1235 + i);
                         DataOutputStream threadServer = new DataOutputStream(threadClient.getOutputStream());
@@ -219,8 +215,10 @@ public class ClientSecure {
             toServer.writeInt(2);
             toServer.flush();
             int signal = fromServer.readInt();
-            if (signal == 3) {
+            System.out.println(signal);
 
+            if (signal == 3) {
+                // Signal that the server is closing the connection
             }
         } catch (Exception e) {
             // Not valid!
@@ -312,8 +310,8 @@ class FileSendThread extends Thread {
     public void run() {
         try {
             byte [] fromFileBuffer = new byte[117];
-            // Thread i computes for i, i + NUM_THREADS, ...
-            for(int j = this.threadNum; j < this.fileData.length/fromFileBuffer.length + 1; j += ClientSecure.NUM_THREADS) {
+            // Thread i computes for i, i + ServerSecure.NUMBER_OF_THREADS, ...
+            for(int j = this.threadNum; j < this.fileData.length/fromFileBuffer.length + 1; j += ServerSecure.NUMBER_OF_THREADS) {
                 int numBytes = 0;
                 // Encrypt data in blocks of 117
                 for(int k = 0; k < fromFileBuffer.length; k ++) {

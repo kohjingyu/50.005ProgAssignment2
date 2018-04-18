@@ -30,7 +30,7 @@ public class ServerSecure {
     static String protocol;
     static Cipher rsaEncryptCipher;
     static Cipher decryptCipher;
-    static final int NUMBER_OF_THREADS = 7;
+    static final int NUMBER_OF_THREADS = 1;
 
     public static void main(String[] args){
         ServerSocket welcomeSocket = null;
@@ -135,13 +135,16 @@ public class ServerSecure {
                     // If the packet is for transferring a chunk of the file
                     } else if (packetType == 1) {
                         // System.out.println("Receiving file...");
-
                         Thread[] multithread = new Thread[NUMBER_OF_THREADS];
                         AtomicInteger ai = new AtomicInteger();
                         CyclicBarrier cb = new CyclicBarrier(NUMBER_OF_THREADS + 1);
                         for (int i = 0; i < NUMBER_OF_THREADS; i++){
-                            decryptCipher = initialiseCipher("RSA-D");
-                            MyRunnable mr = new MyRunnable(i,ai,NUMBER_OF_THREADS,decryptCipher,cb, bufferedFileOutputStream);
+                            Cipher threadDecryptCipher = initialiseCipher("AES-D");
+                            if (protocol.equals("RSA")) {
+                                threadDecryptCipher = initialiseCipher("RSA-D");
+                            }
+                            
+                            MyRunnable mr = new MyRunnable(i,ai,NUMBER_OF_THREADS,threadDecryptCipher,cb, bufferedFileOutputStream);
                             multithread[i] = new Thread(mr);
                             multithread[i].start();
                         }
@@ -149,15 +152,15 @@ public class ServerSecure {
                         toClient.writeInt(4);
                         for (int i = 0; i < NUMBER_OF_THREADS; i++){
                             multithread[i].join();
-                            System.out.println();
                         }
                     }
+                    else if (packetType == 2) {
+                        if (bufferedFileOutputStream != null) {
+                            System.out.println("Closing file...");
+                            bufferedFileOutputStream.close();
+                            fileOutputStream.close();
+                        }
 
-                    if (packetType == 2) {
-                        System.out.println("Closing connection...");
-
-                        if (bufferedFileOutputStream != null) bufferedFileOutputStream.close();
-                        if (bufferedFileOutputStream != null) fileOutputStream.close();
                         toClient.writeInt(3);
                         fromClient.close();
                         toClient.close();
@@ -266,10 +269,8 @@ class MyRunnable implements Runnable{
                 }
                 // System.out.println(id + ": Waiting for file from client");
                 int numBytes = fromClient.readInt();
-                // System.out.println("" + id + ": " + numBytes);
                 byte[] encryptedBlock = new byte[128];
                 fromClient.readFully(encryptedBlock);
-                // System.out.println(id + ": encryptedBlock length: " + encryptedBlock.length);
                 byte[] decryptedBlock = this.decryptCipher.doFinal(encryptedBlock);
                 if (numBytes > 0){
                     while (turn.get() != id){}
