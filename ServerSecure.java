@@ -24,6 +24,8 @@ import java.security.KeyFactory;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.CyclicBarrier;
+import javax.crypto.spec.SecretKeySpec;
+
 
 public class ServerSecure {
     static SecretKey aesSymmetricKey;
@@ -95,10 +97,12 @@ public class ServerSecure {
                             decryptCipher = initialiseCipher("RSA-D");
                             System.out.println("Using AES protocol");
                             int aesSymmetricKeySize = fromClient.readInt();
-                            byte[] encryptedSymmetricKey = new byte[decryptCipher.getBlockSize];
+                            byte[] encryptedSymmetricKey = new byte[128];
                             fromClient.readFully(encryptedSymmetricKey);
-                            aesSymmetricKey = decryptCipher.doFinal(encryptedSymmetricKey);
+                            byte[] decryptedSessionKey = decryptCipher.doFinal(encryptedSymmetricKey);
+                            aesSymmetricKey = new SecretKeySpec(decryptedSessionKey, "AES");
                             decryptCipher = initialiseCipher("AES-D");
+
                             // decryptCipher = initialiseCipher("AES-D");
                             // System.out.println("Encrypting session key...");
                             // byte[] encryptedSymmetricKey = encryptBytes(aesSymmetricKey.getEncoded());
