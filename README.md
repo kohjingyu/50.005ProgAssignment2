@@ -82,7 +82,7 @@ Upon a successful execution, the client will close its connection to the server 
 
 ## Results
 
-We transferred files of varying sizes. We observed the following trend:
+We transferred files of varying sizes. All experiments were done using a **single thread**. We observed the following trend:
 
 ![Plot](images/plot.png)
 
@@ -90,4 +90,7 @@ It is clear that the AES encryption standard is much quicker than using RSA for 
 
 ## Conclusion
 
+We use public key authentication to perform a handshake between the client and server for file transfer. Additionally, we allow the server and client to specify the encryption policy used (public key encryption, or symmetric key encryption with AES). We benchmark the speed of both policies and conclude that symmetric key encryption is significantly faster.
+
+Additionally, our file transfer system allows the user to transfer files over multiple sockets in parallel. For large files, this speeds up file transfer significantly. However, for smaller files, the overhead in creating new threads may outweigh the performance gains from transferring files in parallel.
 
