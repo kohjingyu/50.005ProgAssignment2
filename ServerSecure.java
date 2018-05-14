@@ -159,7 +159,8 @@ public class ServerSecure {
                             multithread[i].start();
                         }
                         cb.await();
-                        toClient.writeInt(4);
+                        toClient.writeInt(4); // Send that threads are ready
+                        toClient.writeInt(NUMBER_OF_THREADS);
                         for (int i = 0; i < NUMBER_OF_THREADS; i++){
                             multithread[i].join();
                         }

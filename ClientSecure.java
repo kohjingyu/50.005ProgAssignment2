@@ -31,6 +31,7 @@ public class ClientSecure {
     static Cipher decryptCipher = null;
     static Cipher encryptCipher = null;
     static Key aesSymmetricKey = null;
+    static int NUMBER_OF_THREADS;
 
     public static void main(String[] args) {
         BufferedReader stdIn = new BufferedReader(new InputStreamReader(System.in));
@@ -64,6 +65,10 @@ public class ClientSecure {
             System.out.println("Establishing connection to server...");
 
             // Connect to server and get the input and output streams
+            // (laptop)
+            // String server = "10.12.182.147";
+            // (desktop)
+            // String server = "10.12.150.191";
             String server = "localhost";
             clientSocket = new Socket(server, 1234);
             toServer = new DataOutputStream(clientSocket.getOutputStream());
@@ -170,11 +175,12 @@ public class ClientSecure {
 
                 // toServer.writeInt(1);
                 int threadsReady = fromServer.readInt();
+                ClientSecure.NUMBER_OF_THREADS = fromServer.readInt();
 
                 if(threadsReady == 4) {
-                    FileSendThread[] threads = new FileSendThread[ServerSecure.NUMBER_OF_THREADS];
+                    FileSendThread[] threads = new FileSendThread[ClientSecure.NUMBER_OF_THREADS];
 
-                    for(int i = 0; i < ServerSecure.NUMBER_OF_THREADS; i ++) {
+                    for(int i = 0; i < ClientSecure.NUMBER_OF_THREADS; i ++) {
                         Cipher threadEncryptCipher = initialiseCipher("RSA-E",serverPublicKey);
                         if (protocol.equals("AES")) {
                             //Initialising RSA Cipher
@@ -309,8 +315,8 @@ class FileSendThread extends Thread {
     public void run() {
         try {
             byte [] fromFileBuffer = new byte[117];
-            // Thread i computes for i, i + ServerSecure.NUMBER_OF_THREADS, ...
-            for(int j = this.threadNum; j < this.fileData.length/fromFileBuffer.length + 1; j += ServerSecure.NUMBER_OF_THREADS) {
+            // Thread i computes for i, i + ClientSecure.NUMBER_OF_THREADS, ...
+            for(int j = this.threadNum; j < this.fileData.length/fromFileBuffer.length + 1; j += ClientSecure.NUMBER_OF_THREADS) {
                 int numBytes = 0;
                 // Encrypt data in blocks of 117
                 for(int k = 0; k < fromFileBuffer.length; k ++) {
